@@ -10,6 +10,7 @@ import SavesPage from './pages/Saves';
 import BankPage from './pages/Bank';
 import SaveEditor from './pages/SaveEditor';
 import ProtectedRoute from './components/ProtectedRoute';
+const EmulatorPage = React.lazy(() => import('./pages/Emulator'));
 
 const App: React.FC = () => {
   return (
@@ -48,6 +49,16 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <SaveEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/play/:saveFileId"
+              element={
+                <ProtectedRoute>
+                  <React.Suspense fallback={<div style={{padding:48,textAlign:'center'}}>加载模拟器...</div>}>
+                    <EmulatorPage />
+                  </React.Suspense>
                 </ProtectedRoute>
               }
             />

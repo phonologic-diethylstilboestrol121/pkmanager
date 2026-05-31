@@ -176,6 +176,20 @@ public class SaveFileController : ControllerBase
         catch (BusinessException ex) { return NotFound(ApiResponse<List<SaveBackupDto>>.Error(ex.ErrorCode, ex.Message)); }
     }
 
+    /// <summary>下载原始存档二进制（供模拟器使用）</summary>
+    [HttpGet("{id:guid}/raw")]
+    public async Task<IActionResult> DownloadRaw(Guid id)
+    {
+        var userId = _userContext.UserId;
+        if (userId == null) return Unauthorized();
+        try
+        {
+            var (data, _) = await _saveFileService.GetDownloadData(id, userId.Value);
+            return File(data, "application/octet-stream", $"save_{id}.sav");
+        }
+        catch (BusinessException) { return NotFound(); }
+    }
+
     [HttpPost("{id:guid}/backups/{backupId:guid}/restore")]
     public async Task<ActionResult<ApiResponse<object>>> RestoreBackup(Guid id, Guid backupId)
     {

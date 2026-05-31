@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   Typography, Table, Button, Upload, Popconfirm, App, Tag, Space, Card,
 } from 'antd';
-import { UploadOutlined, DeleteOutlined, EyeOutlined, FileAddOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, EyeOutlined, FileAddOutlined, ArrowLeftOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
 import { saveFileApi, type SaveFileInfo } from '../api/saveFile';
@@ -91,7 +91,7 @@ const SavesPage: React.FC = () => {
       title: '世代',
       dataIndex: 'generation',
       key: 'generation',
-      width: 130,
+      width: 90,
       render: (gen: number) => (
         <Tag color={GENERATION_COLORS[gen] || 'default'}>
           {GENERATION_MAP[gen] || `Gen${gen}`}
@@ -108,20 +108,20 @@ const SavesPage: React.FC = () => {
       title: '训练家',
       dataIndex: 'trainerName',
       key: 'trainerName',
-      width: 100,
+      width: 90,
     },
     {
-      title: '宝可梦数',
+      title: '宝可梦',
       dataIndex: 'pokemonCount',
       key: 'pokemonCount',
-      width: 90,
+      width: 70,
       align: 'center',
     },
     {
-      title: '游戏时间',
+      title: '时间',
       dataIndex: 'playTime',
       key: 'playTime',
-      width: 90,
+      width: 80,
       render: (t: number) => formatPlayTime(t),
     },
     {
@@ -142,9 +142,14 @@ const SavesPage: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 160,
+      width: 180,
       render: (_, record) => (
         <Space>
+          {(record.generation === 3) && (
+            <Button type="link" size="small" icon={<PlayCircleOutlined />}
+              onClick={() => window.open(`/play/${record.saveFileId}`, '_blank')}
+              style={{ color: '#52c41a' }}>游玩</Button>
+          )}
           <Button
             type="link"
             size="small"
@@ -193,6 +198,7 @@ const SavesPage: React.FC = () => {
           dataSource={saves}
           rowKey="saveFileId"
           loading={loading}
+          scroll={{ x: 860 }}
           pagination={{ pageSize: 10 }}
           locale={{
             emptyText: (

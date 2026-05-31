@@ -9,6 +9,16 @@ using PkManager.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// HTTPS — mGBA WASM 需要 SharedArrayBuffer（浏览器仅对 localhost 或 HTTPS 启用）
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(5000); // HTTP
+    options.ListenAnyIP(5001, listenOptions =>
+    {
+        listenOptions.UseHttps("/home/fmangela/pkmanager/server/cert.pfx", "pkmanager123");
+    });
+});
+
 // ── Dapper 配置：自动映射 snake_case 列名到 PascalCase 属性 ──
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
@@ -113,6 +123,18 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // ── 中间件管道 ───────────────────────────────────────────
+
+// Cross-Origin Isolation — only for emulator page (mGBA WASM needs SharedArrayBuffer)
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/play"))
+    {
+        context.Response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
+        context.Response.Headers["Cross-Origin-Embedder-Policy"] = "credentialless";
+    }
+    await next();
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
