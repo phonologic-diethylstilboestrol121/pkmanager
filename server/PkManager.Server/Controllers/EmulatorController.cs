@@ -17,13 +17,12 @@ public class EmulatorController : ControllerBase
     private readonly SaveFileService _saveFileService;
     private readonly ParseService _parseService;
     private readonly UserContext _userContext;
+    private readonly string _baseSaveDir;
 
-    // 存档文件目录（与 SaveFileService 保持一致）
-    private const string BaseSaveDir = "/home/fmangela/pkmanager-saves";
-
-    public EmulatorController(NpgsqlConnection db, SaveFileService saveFileService, ParseService parseService, UserContext userContext)
+    public EmulatorController(NpgsqlConnection db, SaveFileService saveFileService, ParseService parseService, UserContext userContext, IWebHostEnvironment env)
     {
         _db = db; _saveFileService = saveFileService; _parseService = parseService; _userContext = userContext;
+        _baseSaveDir = Path.Combine(env.ContentRootPath, "data", "saves");
     }
 
     /// <summary>列出可用 ROM</summary>
@@ -166,7 +165,7 @@ public class EmulatorController : ControllerBase
         var savePath = saveFile.SavePath;
         if (string.IsNullOrEmpty(savePath))
         {
-            savePath = Path.Combine(BaseSaveDir, userId.Value.ToString(), saveFileId.ToString(), "save.sav");
+            savePath = Path.Combine(_baseSaveDir, userId.Value.ToString(), saveFileId.ToString(), "save.sav");
             Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
             await _db.ExecuteAsync("UPDATE save_files SET save_path=@P WHERE id=@Id",
                 new { P = savePath, Id = saveFileId });
@@ -258,7 +257,7 @@ public class EmulatorController : ControllerBase
         var savePath = saveFile.SavePath;
         if (string.IsNullOrEmpty(savePath))
         {
-            savePath = Path.Combine(BaseSaveDir, userId.Value.ToString(), saveFileId.ToString(), "save.sav");
+            savePath = Path.Combine(_baseSaveDir, userId.Value.ToString(), saveFileId.ToString(), "save.sav");
             Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
             await _db.ExecuteAsync("UPDATE save_files SET save_path=@P WHERE id=@Id",
                 new { P = savePath, Id = saveFileId });
@@ -338,7 +337,7 @@ public class EmulatorController : ControllerBase
         var savePath = saveFile.SavePath;
         if (string.IsNullOrEmpty(savePath))
         {
-            savePath = Path.Combine(BaseSaveDir, userId.Value.ToString(), saveFileId.ToString(), "save.sav");
+            savePath = Path.Combine(_baseSaveDir, userId.Value.ToString(), saveFileId.ToString(), "save.sav");
             Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
             await _db.ExecuteAsync("UPDATE save_files SET save_path=@P WHERE id=@Id",
                 new { P = savePath, Id = saveFileId });

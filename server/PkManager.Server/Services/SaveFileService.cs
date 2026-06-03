@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.AspNetCore.Hosting;
 using Npgsql;
 using PKHeX.Core;
 using PkManager.Server.Models.Entity;
@@ -13,26 +14,27 @@ namespace PkManager.Server.Services;
 /// </summary>
 public class SaveFileService
 {
-    private static readonly string BaseSaveDir = "/home/fmangela/pkmanager-saves";
+    private readonly string _baseSaveDir;
 
     private readonly NpgsqlConnection _db;
     private readonly ParseService _parseService;
 
-    public SaveFileService(NpgsqlConnection db, ParseService parseService)
+    public SaveFileService(NpgsqlConnection db, ParseService parseService, IWebHostEnvironment env)
     {
         _db = db;
         _parseService = parseService;
+        _baseSaveDir = Path.Combine(env.ContentRootPath, "data", "saves");
     }
 
     // ═══ 文件系统辅助 ════════════════════════════════════
 
-    private static string GetSaveDir(Guid userId, Guid saveFileId) =>
-        Path.Combine(BaseSaveDir, userId.ToString(), saveFileId.ToString());
+    private string GetSaveDir(Guid userId, Guid saveFileId) =>
+        Path.Combine(_baseSaveDir, userId.ToString(), saveFileId.ToString());
 
-    private static string GetSavePath(Guid userId, Guid saveFileId) =>
+    private string GetSavePath(Guid userId, Guid saveFileId) =>
         Path.Combine(GetSaveDir(userId, saveFileId), "save.sav");
 
-    private static string GetBackupDir(Guid userId, Guid saveFileId) =>
+    private string GetBackupDir(Guid userId, Guid saveFileId) =>
         Path.Combine(GetSaveDir(userId, saveFileId), "backups");
 
     /// <summary>读取存档二进制：优先文件系统，回退 DB（旧数据兼容）</summary>
