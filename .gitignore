@@ -4,6 +4,7 @@
 *.user
 .DS_Store
 .env
+CLAUDE.md
 .vs/
 .vscode/
 Thumbs.db
