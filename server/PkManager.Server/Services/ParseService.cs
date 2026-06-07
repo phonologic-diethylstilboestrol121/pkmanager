@@ -26,8 +26,11 @@ public class ParseService
             ? $"（识别为 {knownSizes[saveData.Length]} 存档）"
             : $"（文件大小 {saveData.Length} 字节，常见大小: {string.Join(", ", knownSizes.Select(k => $"{k.Key}"))}）";
 
+        // PKHeX 解析期间可能会触碰传入缓冲区；用副本隔离，避免上传原始字节被污染。
+        var parseBuffer = (byte[])saveData.Clone();
+
         // PKHeX.Core 自动识别存档格式
-        var sav = SaveUtil.GetVariantSAV(saveData);
+        var sav = SaveUtil.GetVariantSAV(parseBuffer);
         if (sav == null)
             throw new BusinessException(
                 $"不支持的存档格式或文件已损坏 {sizeHint}。" +

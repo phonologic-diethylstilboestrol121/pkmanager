@@ -273,12 +273,20 @@ export interface CheckLocalRequest {
 }
 
 export interface LaunchLocalResult {
-  pid: number;
-  status: string;
   type: 'azahar' | 'desmume';
-  backedUp: boolean;
-  isFirstLaunch: boolean;
-  backupPath?: string;
+  generation: number;
+  gameVersion: number;
+  titleIdLow?: string | null;
+  exePath: string;
+  saveDir: string;
+  romPath?: string;
+  gameInstalled: boolean;
+  emuSavePath?: string;
+  launchArgs?: string;
+  saveDataBase64: string;
+  fileName: string;
+  saveFileId: string;
+  syncToken: string;
 }
 
 export const emulatorApi = {
@@ -287,6 +295,10 @@ export const emulatorApi = {
 
   launchLocal: (saveFileId: string) =>
     apiClient.post<LaunchLocalResult>(`/Emulator/launch-local/${saveFileId}`),
+
+  /** 获取临时启动 token（用于协议处理器一键启动） */
+  createLaunchToken: (saveFileId: string) =>
+    apiClient.post<{ token: string; protocolUrl: string }>(`/Emulator/launch-token/${saveFileId}`),
 
   localStatus: (saveFileId: string) =>
     apiClient.get<{ running: boolean; pid?: number; stuck?: boolean }>(`/Emulator/local-status/${saveFileId}`),

@@ -80,10 +80,17 @@ public class PokemonController : ControllerBase
             await _saveFileService.CreateBackup(request.SaveFileId, userId.Value, "编辑前自动备份");
 
             // 直接写入 raw_save_data
+            PKM? persisted;
             if (request.IsParty)
-                await PersistPartyEdit(request.SaveFileId, userId.Value, request.SlotIndex, pkm);
+                persisted = await PersistPartyEdit(request.SaveFileId, userId.Value, request.SlotIndex, pkm);
             else
+            {
                 await _saveFileService.WriteBoxSlot(request.SaveFileId, userId.Value, request.BoxIndex, request.SlotIndex, pkm);
+                persisted = _saveFileService.ReadBoxSlot(request.SaveFileId, userId.Value, request.BoxIndex, request.SlotIndex);
+            }
+
+            if (persisted != null)
+                result.UpdatedPokemon = ParseService.MapToPokemonDto(persisted);
 
             return Ok(ApiResponse<EditResultDto>.Ok(result,
                 result.IsValid ? "修改已保存" : "已保存（⚠️ 不合法）"));
@@ -154,29 +161,51 @@ public class PokemonController : ControllerBase
     /// <summary>
     /// 将编辑后的 PKM 写回存档原始二进制的 Party 槽位
     /// </summary>
-    private async Task PersistPartyEdit(Guid saveFileId, Guid userId, int slotIndex, PKM editedPkm)
+    private async Task<PKM?> PersistPartyEdit(Guid saveFileId, Guid userId, int slotIndex, PKM editedPkm)
     {
         // 获取存档原始二进制
         var saveFile = await _db.QueryFirstOrDefaultAsync<Models.Entity.SaveFile>(
             "SELECT * FROM save_files WHERE id = @Id AND user_id = @UserId",
             new { Id = saveFileId, UserId = userId });
-        if (saveFile == null) return;
+        if (saveFile == null) return null;
 
-        var sav = SaveUtil.GetVariantSAV(saveFile.RawSaveData);
-        if (sav == null) return;
+        byte[] rawData;
+        if (!string.IsNullOrEmpty(saveFile.SavePath) && System.IO.File.Exists(saveFile.SavePath))
+            rawData = await System.IO.File.ReadAllBytesAsync(saveFile.SavePath);
+        else
+            rawData = saveFile.RawSaveData;
+
+        var sav = SaveUtil.GetVariantSAV((byte[])rawData.Clone());
+        if (sav == null) return null;
 
         // 写入 Party 槽位
         if (slotIndex >= 0 && slotIndex < 6)
         {
-            sav.SetPartySlotAtIndex(editedPkm, slotIndex);
+            var compatible = sav.GetCompatiblePKM(editedPkm);
+            sav.SetPartySlotAtIndex(compatible, slotIndex);
         }
 
         // 重写存档二进制
         var updatedData = sav.Write();
+        var reparsed = SaveUtil.GetVariantSAV((byte[])updatedData.Clone());
+        if (reparsed == null)
+            throw new BusinessException("保存后的存档无法重新解析，已中止写入");
 
-        await _db.ExecuteAsync(
-            "UPDATE save_files SET raw_save_data = @Data, file_size = @Size, is_modified = TRUE, updated_at = NOW() WHERE id = @Id",
-            new { Id = saveFileId, Data = updatedData, Size = updatedData.Length });
+        if (!string.IsNullOrEmpty(saveFile.SavePath))
+        {
+            await System.IO.File.WriteAllBytesAsync(saveFile.SavePath, updatedData);
+            await _db.ExecuteAsync(
+                "UPDATE save_files SET file_size = @Size, is_modified = TRUE, updated_at = NOW() WHERE id = @Id",
+                new { Id = saveFileId, Size = updatedData.Length });
+        }
+        else
+        {
+            await _db.ExecuteAsync(
+                "UPDATE save_files SET raw_save_data = @Data, file_size = @Size, is_modified = TRUE, updated_at = NOW() WHERE id = @Id",
+                new { Id = saveFileId, Data = updatedData, Size = updatedData.Length });
+        }
+
+        return _saveFileService.ReadPartySlot(saveFileId, userId, slotIndex);
     }
 
     /// <summary>

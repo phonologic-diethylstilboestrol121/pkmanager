@@ -37,6 +37,11 @@
   - 后端 Form/FormArgument 读写实现
   - 前端 MainTab 包含 Form InputNumber 编辑
 
+- [ ] **物种特性候选按世代/形态精确过滤**
+  - `ResourceController` 当前 `species/{id}/abilities` 仍固定读取 `PersonalTable.USUM`
+  - 需要按 generation + form 返回对应世代可用特性，避免非 USUM 存档候选错误
+  - 前端 MainTab 的特性下拉与实际存档上下文保持一致
+
 - [x] **语言选择器**
   - 下拉选择：JPN/ENG/FRE/ITA/GER/SPA/KOR/CHS/CHT
   - Gen1-2 编码限制校验（disabled 状态）
@@ -512,6 +517,21 @@
   - 模拟器工具栏在移动端溢出（画面/速度按钮组 + 其他控件太长）
   - 全局页面无移动端断点适配
 
+- [ ] **核心页面布局统一整理（重要）**
+  - Dashboard / Saves / SaveEditor / Settings / Bank 的间距、按钮层级、信息密度、卡片样式当前不统一
+  - 本地模拟器配置、存档操作按钮、导出/保存/本机启动等入口需要统一视觉权重
+  - 需要补桌面端信息栅格 + 中屏断点 + 小屏折叠策略，避免“能用但布局乱”
+
+- [ ] **本地启动回退脚本体验对齐**
+  - 当前 `pkmanager://` 协议启动器已支持“等待退出 → 自动同步 → 恢复本机旧存档”
+  - 浏览器下载的回退脚本仍缺少相同生命周期能力
+  - 需要补齐同步 token、等待退出、自动回传、恢复本机旧存档，确保有无协议两条路径体验一致
+
+- [ ] **本地启动逻辑收口到统一 helper**
+  - 当前 `Dashboard` 已接入 `client/src/lib/localLaunch.ts`
+  - `Saves.tsx` 仍保留一大段旧的内联本地启动 / 脚本拼接逻辑，维护成本高且容易分叉
+  - 需要彻底切到统一 helper，并删除旧内联实现
+
 - [ ] **加载骨架屏**
   - 存档加载时的 Skeleton 占位
 
@@ -680,80 +700,77 @@
 ### H.8 本地 DeSmuME 启动（备选方案）
 
 > melonDS WASM 在老机器上 3D 场景顿挫明显，提供本地 DeSmuME 作为备选方案。DeSmuME 是最成熟的 NDS 开源模拟器（GPLv2），宝可梦全系列完美兼容，CPU/GPU 开销远低于 melonDS，老机器亦可流畅运行。作者强烈推荐。
-> 复用 Phase I（Azahar）的配置存储 + Process.Start + 进程监控基础设施。
+> 复用 Phase I（Azahar）的配置存储 + 本地协议启动器 + 退出后自动同步基础设施。
 
-- [ ] **DeSmuME 可执行文件路径配置**
-  - 复用 Phase I.1 的 `user_settings` 表和后端配置端点
-  - 扩展 `GET/PUT /api/Settings/emulators` 端点，同时管理 Azahar + DeSmuME 路径
-  - Linux: `desmume` / flatpak；Windows: `DeSmuME.exe`；macOS: `DeSmuME.app`
+- [x] **DeSmuME 可执行文件路径配置**
+  - 复用 `user_settings` + `GET/PUT /api/Settings/emulators`
+  - 前端统一在 `/settings` 管理 Azahar + DeSmuME 路径
 
-- [ ] **DeSmuME 存档目录配置**
+- [x] **DeSmuME 存档目录配置**
   - DeSmuME 存档格式：`.dsv`（DeSmuME Save），本质就是原始 NDS save 二进制，PKHeX.Core 可直接解析
-  - 默认存档路径：ROM 同目录下的 `.dsv` 文件，或 `~/.config/desmume/`（取决于 DeSmuME 配置）
-  - pkmanager 将存档写入 DeSmuME 期望的位置，关闭后从 `.dsv` 读回
+  - 支持用户手动指定 save dir；未配置时回退默认目录
+  - pkmanager 启动前写入 `.dsv`，退出后回读到 `save.sav`
 
-- [ ] **后端 Launch DeSmuME API**
-  - `POST /api/Emulator/launch-desmume/{saveFileId}`
-  - 流程（复用 Phase I.3 模式）：
-    1. 查 ROM `local_path` + DeSmuME 配置
-    2. pkmanager `save.sav` → 复制为 DeSmuME 期望的 `.dsv` 文件
-    3. 自动备份（标签 "DeSmuME启动前自动备份"）
-    4. `Process.Start(desmumePath, $"\"{romPath}\"")`
-  - 返回：`{ pid, status }`
+- [x] **后端 Launch DeSmuME API**
+  - 统一入口：`POST /api/Emulator/launch-local/{saveFileId}`
+  - 协议入口：`POST /api/Emulator/launch-token/{saveFileId}` + `GET /api/Emulator/launch-package/{token}`
+  - 返回启动包（exe/save/rom/saveDataBase64/syncToken），由浏览器所在机器的启动器实际拉起 DeSmuME
 
-- [ ] **存档双向同步（.sav ↔ .dsv）**
+- [x] **存档双向同步（.sav ↔ .dsv）**
   - 启动前：`save.sav` → 复制为 ROM 同目录下的 `.dsv`（DeSmuME 自动识别加载）
-  - 关闭后：`.dsv` → 读回写入 `save_files.raw_save_data` + 文件系统
-  - 首次启动 vs 再次启动冲突处理（复用 Phase I.3 弹窗逻辑）
+  - 关闭后：启动器直接将 `.dsv` 二进制 POST 回 `/api/Emulator/sync-save/{saveFileId}`
+  - 同步成功后恢复本机旧 `.dsv`；首次启动则清理临时注入存档
 
-- [ ] **Saves 页 NDS 双入口**
+- [x] **Saves 页 NDS 双入口**
   - Gen4-5 存档行显示两个按钮：
     - 「WASM 游玩」（现有，路由 `/play-nds/`）— 浏览器内 melonDS
-    - 「本机启动」（新增）— 后端调起本地 DeSmuME
-  - 未配置 DeSmuME 时「本机启动」按钮置灰 + 提示配置
+    - 「本机」（新增）— 协议启动器 / 回退脚本调起本地 DeSmuME
+  - 未配置时提示前往设置页配置
 
-- [ ] **进程监控与生命周期**
-  - 复用 Phase I.3 进程监控机制（前端 3s 轮询 + 状态指示器）
-  - Azahar 关闭后自动同步弹窗逻辑同样适用于 DeSmuME
+- [x] **进程监控与生命周期**
+  - 协议启动器本地等待 DeSmuME 进程退出
+  - 退出后自动同步存档并恢复本机旧存档
+
+- [ ] **回退脚本与协议启动器行为完全一致**
+  - 当前 DeSmuME 本机启动优先走协议启动器
+  - 未安装协议时，回退脚本仍缺少退出后自动同步 / 恢复本机旧 `.dsv`
+  - 需要保证 NDS 本机启动在两条路径下行为一致
+
+- [ ] **本地 DeSmuME 全链路人工验收**
+  - 至少验证一款 Gen4（如钻石/心金）和一款 Gen5（如黑/黑2）
+  - 验证流程：启动前注入 → 游戏内保存 → 退出自动同步 → 恢复本机旧 `.dsv`
+  - 验证与现有 melonDS WASM 路径互不干扰
 
 ---
 
 ## Phase I: 3DS 模拟器集成（Azahar 本地启动）
 
-> 目标: 3DS 不采用 WASM 方案 — Citra 核心远比 melonDS 重，浏览器端性能无法流畅运行宝可梦 3DS 游戏。改为绑定本地 Azahar 模拟器，Web 端点击启动，后端通过 `Process.Start` 调起原生模拟器。
+> 目标: 3DS 不采用 WASM 方案 — Citra 核心远比 melonDS 重，浏览器端性能无法流畅运行宝可梦 3DS 游戏。改为绑定本地 Azahar 模拟器，Web 端点击启动后由浏览器所在机器的协议启动器/回退脚本调起原生模拟器，退出后自动回传并恢复本机旧存档。
 > **Azahar** 是作者强烈推荐的 3DS 模拟器。它是 Citra 的继承者（PabloMK7's Citra fork + Lime3DS 合并），GPLv2 开源，目前唯一持续活跃且能完美模拟 3DS 宝可梦全系列的模拟器。其他 Citra 分支（Mandarine-Neo、Borked3DS）已不再维护或兼容性不足。
 > 
 > **覆盖游戏**: Gen6 X/Y/OR/AS + Gen7 S/M/US/UM，共 8 款。
 
 ### I.1 Azahar 配置管理
 
-- [ ] **Azahar 可执行文件路径配置**
-  - 用户在前端设置页指定 Azahar 可执行文件路径
-  - Linux: `azahar` / `azahar-emu` / AppImage 路径
-  - Windows: `azahar.exe` 路径
-  - macOS: `Azahar.app` 路径
-  - 配置按用户级别持久化到数据库
+- [x] **Azahar 可执行文件路径配置**
+  - 用户在 `/settings` 指定 Azahar 可执行文件路径
+  - 配置按 `(user_id, device_id)` 维度持久化到 `user_settings`
 
-- [ ] **Azahar 用户数据目录配置**
-  - 配置 Azahar 的 user data 目录（包含 `sdmc/` 模拟 SD 卡，游戏存档即在此处）
-  - 自动检测默认路径：
-    - Linux: `~/.local/share/azahar-emu/`
-    - Windows: `%APPDATA%/azahar-emu/`
-    - macOS: `~/Library/Application Support/azahar-emu/`
-  - 支持手动覆盖（如使用 portable 模式）
+- [x] **Azahar 用户数据目录配置**
+  - 配置 Azahar 的 user data 目录（包含 `sdmc/`）
+  - 未配置时后端按 OS 回退到默认 Azahar data dir
+  - 支持用户手动覆盖 portable / NAS / SMB 路径
 
-- [ ] **后端 Azahar 配置端点**
-  - `GET /api/Settings/azahar` — 获取当前用户 Azahar 配置
-  - `PUT /api/Settings/azahar` — 保存/更新可执行文件路径 + 用户数据目录
-  - `POST /api/Settings/azahar/test` — 测试路径有效性（启动 Azahar 获取版本号，验证后立即退出）
-  - 配置存储：新增 `user_settings` 表（`user_id` + `key` + `value`，支持 JSON value）
+- [x] **后端 Azahar 配置端点**
+  - 统一使用 `GET/PUT /api/Settings/emulators`
+  - `user_settings` 表已落地，按设备隔离 Azahar / DeSmuME 配置
+  - 独立 test 端点可后续再补
 
-- [ ] **前端 Azahar 设置页面**
-  - 路由：`/settings/azahar`
-  - 两个输入框：可执行文件路径 + 用户数据目录
-  - 「自动检测」按钮 → 调用后端遍历默认路径检测是否存在
-  - 「测试连接」按钮 → 后端启动 Azahar 验证 + 显示版本信息（如 `Azahar 2125.1.1`）
-  - 未配置时 Dashboard 3DS 游戏卡片显示「需要先配置 Azahar」引导提示
+- [x] **前端 Azahar 设置页面**
+  - 路由统一为 `/settings`
+  - 已支持可执行文件路径 + 用户数据目录配置
+  - 已提供协议安装入口（`install-pkmanager-protocol.bat`）
+  - 自动检测 / 测试连接可后续增强
 
 ### I.2 3DS ROM 管理
 
@@ -763,7 +780,7 @@
   - `POST /api/Emulator/roms/import-local` 扩展支持 3DS ROM 识别
   - 从 ROM Header 自动提取：Title ID / Game Serial / 游戏名称 / Region
 
-- [ ] **3DS 游戏版本 → Title ID 映射表**
+- [x] **3DS 游戏版本 → Title ID 映射表**
   - 后端维护 8 款宝可梦 3DS 游戏的 Title ID 映射（用于定位 Azahar 存档路径）：
 
   | 游戏 | PKHeX 版本号 | Title ID |
@@ -777,73 +794,70 @@
   | Ultra Sun | 32 | `00040000001B5000` |
   | Ultra Moon | 33 | `00040000001B5100` |
 
-  - Azahar 存档路径：`{sdmc}/Nintendo 3DS/<ID0>/<ID1>/title/<high_tid>/<low_tid>/data/00000001.sav`
-  - （ID0/ID1 为 32-char hex，Azahar 默认固定值，可自动探测或手动配置）
+  - 实际 Azahar 存档路径：`{sdmc}/Nintendo 3DS/<ID0>/<ID1>/title/<high_tid>/<low_tid>/data/00000001/main`
+  - 当前按固定 `ID0/ID1` 目录布局工作，已验证 USUM 流程
 
-- [ ] **Dashboard 3DS 游戏卡片**
+- [x] **Dashboard 3DS 游戏卡片**
   - 新增 8 张 3DS 游戏卡片，按发行日期排序：
     - Gen6: X(2013.10) / Y(2013.10) / OR(2014.11) / AS(2014.11)
     - Gen7: S(2016.11) / M(2016.11) / US(2017.11) / UM(2017.11)
   - 每张卡片：游戏封面/图标 + 版本名称 + 世代 Tag（3DS）
   - 未配置 Azahar 时卡片置灰 + 显示「配置 Azahar」引导链接
 
-- [ ] **Saves 页 3DS 存档入口**
+- [x] **Saves 页 3DS 存档入口**
   - `GAME_VERSION_DISPLAY` 已覆盖 Gen6-7 所有版本 ✅
-  - Gen6-7 存档行显示「启动 Azahar」按钮（替代 WASM 的「游玩」按钮）
-  - 按钮携带 Azahar 配置状态：未配置 → 跳转到设置页；已配置 → 调起启动
+  - Gen6-7 存档行显示「本机」按钮（替代 WASM）
+  - 未配置时引导至设置页；已配置时优先走 `pkmanager://` 协议
+
+- [ ] **3DS `main` 文件上传体验修复**
+  - 3DS 主存档通常为无扩展名 `main`
+  - 当前上传控件 `accept` 仅含 `.sav/.dat/.dsv/.gci`，文件选择器默认看不到 `main`
+  - 需支持无扩展名 `main` 的上传引导与前端限制策略
 
 ### I.3 启动集成
 
-- [ ] **后端 Launch Azahar API**
-  - `POST /api/Emulator/launch-azahar/{saveFileId}`
-  - 完整流程：
-    1. 从 `save_files` 获取存档的游戏版本 → 查 ROM `local_path` + Title ID
-    2. 检查 Azahar 配置是否存在（否则返回 400 + "请先配置 Azahar"）
-    3. 将 pkmanager 管理的 `save.sav` 复制到 Azahar 存档目录对应 Title ID 路径
-    4. 自动创建备份（标签"Azahar启动前自动备份"）
-    5. `System.Diagnostics.Process.Start(azaharPath, $"--fullscreen \"{romPath}\"")` 
-    6. 记录 PID 到内存（ConcurrentDictionary）
-  - 返回：`{ pid, status: "launched" | "error", message }`
-  - 安全措施：验证 ROM 路径存在，Azahar 路径来自数据库（防止路径注入）
+- [x] **后端 Launch Azahar API**
+  - 启动包入口：`POST /api/Emulator/launch-local/{saveFileId}`
+  - 协议入口：`POST /api/Emulator/launch-token/{saveFileId}` + `GET /api/Emulator/launch-package/{token}`
+  - 返回启动包（exe/save/rom/saveDataBase64/syncToken），由本地协议启动器实际启动 Azahar
+  - 安全措施：路径仅来自用户配置 + 服务器生成的启动包，不接受浏览器任意路径注入
 
-- [ ] **存档 → Azahar save 目录双向写入**
-  - 首次启动（Azahar 无该游戏存档）：pkmanager 存档直接写入 Azahar 目录作为初始存档
-  - 再次启动（Azahar 已有存档）：弹窗提示用户选择：
-    - 「使用 pkmanager 存档」（覆盖 Azahar 存档）
-    - 「使用 Azahar 已有存档」（跳过写入，后续从 Azahar 同步回 pkmanager）
-  - 需创建中间目录：`{userDataDir}/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/{high}/00000000/`
+- [x] **存档 → Azahar save 目录双向写入**
+  - 启动前：`save.sav` 直接写入 Azahar `.../data/00000001/main`
+  - 同步成功后：协议启动器恢复本机原始 `main.bak`
+  - 协议不可用时提供 PowerShell / shell 回退脚本
 
-- [ ] **启动前存档自动备份**
+- [x] **启动前存档自动备份**
   - 每次向 Azahar 写入存档前，自动在 pkmanager `save_backups` 创建备份
-  - 标签：`"Azahar启动前自动备份 (写入Azahar)"`
-  - 确保任何情况下都可恢复被覆盖的存档
+  - 本机旧存档额外备份到 `pkmanager_backup/<titleId>/main.bak`
+  - 确保同步成功后可恢复本机旧存档
 
-- [ ] **进程监控与生命周期**
-  - 前端：启动后显示「Azahar 运行中」状态指示器（绿色脉冲点）
-  - 前端轮询 `GET /api/Emulator/azahar-status?pid={pid}`（间隔 3 秒）
-  - Azahar 进程退出 → 前端收到通知 + Toast 提示「Azahar 已关闭」
-  - 用户可主动关闭：前端「终止 Azahar」按钮 → `POST /api/Emulator/stop-azahar?pid={pid}` → `Process.Kill()`
-  - 页面 `beforeunload` 时提醒「Azahar 仍在运行，关闭页面不会终止模拟器」
+- [x] **进程监控与生命周期**
+  - 协议启动器本地等待 Azahar 进程退出
+  - 退出后自动同步本机 `main` 回服务器，再恢复本机旧存档
+  - 浏览器协议启动路径不再依赖前端轮询 PID
 
 ### I.4 存档联动
 
-- [ ] **Azahar 保存后存档回传**
-  - `POST /api/Emulator/sync-from-azahar/{saveFileId}`
-  - 从 Azahar 存档目录读取 `00000001.sav`
-  - 写入 pkmanager `save_files.raw_save_data`（BYTEA）+ 文件系统 `data/saves/`
-  - PKHeX.Core 解析存档 → 更新 `save_files` 元数据（宝可梦数量 / 训练家名 / 游戏时间等）
-  - 创建备份（标签 `"从Azahar同步"`）
+- [x] **Azahar 保存后存档回传**
+  - 协议启动器在 Azahar 退出后直接 POST 二进制到 `/api/Emulator/sync-save/{saveFileId}`
+  - 后端写入 `data/saves/` 并更新 `save_files` 元数据
+  - 同步后保留 pkmanager 备份链路
+
+- [ ] **本地模拟器设计文档与现状对齐**
+  - `docs/本地模拟器关联设计.md` 仍保留“后端 Process.Start + 服务器负责生命周期”的旧模型
+  - 需要改成当前真实实现：本地协议启动器 / 回退脚本启动 + 退出后自动同步 + 恢复本机旧存档
+  - 避免后续开发 NDS/3DS 本地启动时继续被旧文档误导
 
 - [ ] **手动同步按钮**
   - Saves 页 3DS 存档行添加「同步存档」按钮（Azahar 关闭后可用）
-  - 点击 → 调用 `sync-from-azahar` → 成功后 Toast + 刷新存档列表
+  - 点击 → 调用 `sync-from-local` → 成功后 Toast + 刷新存档列表
   - 按钮旁显示「上次同步时间」
 
-- [ ] **Azahar 关闭后自动同步**
-  - 进程监控检测到 Azahar 退出 → 前端弹窗：
-    - 「检测到 Azahar 已关闭。是否将存档同步回 pkmanager？」
-    - 按钮：`[同步存档] [忽略] [始终自动同步]`
-  - 「始终自动同步」选项持久化到 `user_settings`
+- [x] **Azahar 关闭后自动同步**
+  - 协议启动器等待 Azahar 退出后，直接自动上传二进制存档
+  - 同步成功后恢复本机旧存档
+  - 不依赖浏览器页面仍然保持打开
 
 - [ ] **存档冲突检测与处理**
   - 同步前比较双方存档修改时间：
@@ -1087,12 +1101,11 @@ Week 19-20: Phase I.4 存档联动（同步回传 + 冲突处理）
 > - ✅ **DeSmuME + Azahar 源码分析** — `sdk/desmume/` + `sdk/azahar/`，分析 CLI 参数、存档路径、配置目录
 > - ✅ **设计文档更新** — `本地模拟器关联设计.md`（NDS/3DS 存档路径修正 + CLI 启动方式）+ `本地模拟器异常处理设计.md`（26 种异常场景 + 备份恢复 + 急救）
 > - ✅ **预校验端点** — `POST /api/Emulator/check-local`（验证 exe + CIA/ROM 就绪）
-> - ✅ **备份恢复机制** — 启动前备份本地存档 → 注入 pkmanager 存档 → 关闭后同步 → 恢复本地备份
+> - ✅ **协议启动器** — `pkmanager://` 自定义协议 + `install-pkmanager-protocol.bat`，由浏览器所在机器调起本地模拟器
+> - ✅ **备份恢复机制** — 启动前备份本地存档 → 注入 pkmanager 存档 → 关闭后自动二进制同步 → 恢复本地备份
 > - ✅ **应急恢复** — `POST /api/Emulator/emergency-restore/{id}`
 > - ✅ **pid.lock** — 防并发启动
-> - ✅ **前端轮询自动同步** — 每 2 秒检测进程状态，退出自动 sync-from-local
 > - ✅ **Dashboard 3DS 预校验** — 点击 3DS 卡片先验证 Azahar 配置
-> - ✅ **Saves 页状态指示** — 「启动中...」→「运行中」→「同步中」→ 恢复按钮
 > - ✅ **PostgreSQL 迁移** — `~/pgdata` → `data/pgdata/`（项目内部，WAL 限制 128MB）
 > - TypeScript 0 错误 + .NET 0 错误 + Vite 构建通过
 > - Phase H: 33/25 (+2), Phase I: 19/14 (+6), 总计 190/116/0/74
@@ -1109,11 +1122,23 @@ Week 19-20: Phase I.4 存档联动（同步回传 + 冲突处理）
 > ### I.1+H.8 本地模拟器配置框架完成
 > - ✅ **设计文档** — `docs/emulator-local-launch-design.md`
 > - ✅ **DB** — `user_settings` 表 (user_id + device_id + key → value)，已执行
-> - ✅ **后端** — `SettingsService` + `SettingsController` (`GET/PUT /api/settings/emulators`) + `EmulatorController.LaunchLocal` / `SyncFromLocal` / `LocalStatus`
-> - ✅ **前端** — `main.tsx` device_id 生成 + `axios.ts` X-Device-Id 请求头 + `settingsStore` + `SettingsPage` (`/settings`) + Saves 页「本机」启动按钮
+> - ✅ **后端** — `SettingsService` + `SettingsController` (`GET/PUT /api/settings/emulators`) + `EmulatorController.LaunchLocal` / `CreateLaunchToken` / `GetLaunchPackage` / `SyncSaveBinary`
+> - ✅ **前端** — `main.tsx` device_id 生成 + `axios.ts` X-Device-Id 请求头 + `settingsStore` + `SettingsPage` (`/settings`) + Saves 页「本机」启动按钮 + 协议安装入口
 > - 🔑 **device_id 机制**: localStorage UUID → 每个请求自动带 X-Device-Id → 后端按 (user_id, device_id) 隔离配置。换电脑自动重新生成
 > - TypeScript 0 错误 + .NET Build 0 错误 + Vite 构建通过
 > - Phase H: 33/23 (+3), Phase I: 19/5 (+5), 总计 190/109/0/81
+
+**更新 (2026-06-07)**：
+
+> ### 本地协议启动 + 自动同步恢复闭环
+> - ✅ **协议一键启动** — 浏览器优先调用 `pkmanager://launch/{token}`；未安装协议时回退下载本地脚本
+> - ✅ **路径与引号修复** — Windows 启动参数统一带引号，支持包含空格的 `Nintendo 3DS` 路径
+> - ✅ **本地写入校验** — 注入 `main` / `.dsv` 后立即回读并校验字节数与 SHA-256
+> - ✅ **自动同步回传** — 模拟器退出后启动器直接 POST 本机存档二进制到 `/api/Emulator/sync-save/{saveFileId}`
+> - ✅ **恢复本机旧存档** — 同步成功后自动恢复 `pkmanager_backup` 中的旧本机存档；首次启动时对 DeSmuME 清理临时注入存档
+> - ✅ **导出链路修复** — 存档查看页「导出」改为带鉴权 blob 下载；服务器导出结果已可手动覆盖本地 `main`
+> - ✅ **上传/编辑稳定性修复** — ParseService 改为副本解析；写回前 `GetCompatiblePKM` + round-trip 校验；保存后从磁盘回读真实槽位返回前端
+> - ✅ **EXP/等级联动** — 物种经验表接口 + 前端等级/EXP 双向同步，避免提交不一致
 > 
 > ### 工作台卡片封面化完成
 > - ✅ **统一游戏元数据** — `src/constants/games.ts`（唯一数据源，GAME_META + VERSION_TO_GAME_ID + GAME_VERSION_DISPLAY + GENERATION_MAP）

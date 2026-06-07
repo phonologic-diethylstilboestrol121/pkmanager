@@ -5,6 +5,11 @@ export interface ResourceItem {
   name: string;
 }
 
+export interface SpeciesExperienceInfo {
+  growthRate: number;
+  expTable: number[];
+}
+
 export const resourceApi = {
   species: () =>
     apiClient.get<ResourceItem[]>('/Resource/species'),
@@ -27,11 +32,14 @@ export const resourceApi = {
   games: () =>
     apiClient.get<ResourceItem[]>('/Resource/games'),
 
-  speciesAbilities: (speciesId: number, generation?: number) =>
-    apiClient.get<ResourceItem[]>(`/Resource/species/${speciesId}/abilities`, { params: { generation } }),
+  speciesAbilities: (speciesId: number, generation?: number, form?: number) =>
+    apiClient.get<ResourceItem[]>(`/Resource/species/${speciesId}/abilities`, { params: { generation, form } }),
 
-  speciesMoves: (speciesId: number, generation?: number) =>
-    apiClient.get<ResourceItem[]>(`/Resource/species/${speciesId}/moves`, { params: { generation } }),
+  speciesMoves: (speciesId: number, generation?: number, form?: number) =>
+    apiClient.get<ResourceItem[]>(`/Resource/species/${speciesId}/moves`, { params: { generation, form } }),
+
+  speciesExperience: (speciesId: number, generation?: number, form?: number) =>
+    apiClient.get<SpeciesExperienceInfo>(`/Resource/species/${speciesId}/experience`, { params: { generation, form } }),
 
   geoCountries: () =>
     apiClient.get<ResourceItem[]>('/Resource/geo/countries'),

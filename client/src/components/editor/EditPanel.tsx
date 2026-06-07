@@ -253,6 +253,7 @@ function buildEditRequest(pokemon: PokemonDto): Record<string, unknown> {
     isShiny: pokemon.isShiny,
     isEgg: pokemon.isEgg,
     form: pokemon.form,
+    formArgument: pokemon.formArgument,
     language: pokemon.language,
     exp: pokemon.exp,
     friendship: pokemon.originalTrainerFriendship,

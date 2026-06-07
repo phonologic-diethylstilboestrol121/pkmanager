@@ -21,6 +21,14 @@ const LANGUAGES = [
 
 const labelStyle: React.CSSProperties = { fontSize: 11, color: '#8c8c8c', marginBottom: 2 };
 
+const getLevelFromExp = (exp: number, table: number[]) => {
+  if (table.length === 0) return 1;
+  if (exp >= table[table.length - 1]) return 100;
+  let level = 1;
+  while (level < table.length && exp >= table[level]) level += 1;
+  return level;
+};
+
 const MainTab: React.FC<Props> = ({ pokemon, generation, onChange }) => {
   const { species, abilities, natures, items, balls } = useResourceStore();
   const isGen12 = generation <= 2;
@@ -28,9 +36,10 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange }) => {
   const ch = () => onChange?.();
 
   const [speciesAbilities, setSpeciesAbilities] = useState<ResourceItem[]>([]);
+  const [expTable, setExpTable] = useState<number[]>([]);
   useEffect(() => {
     if (pokemon.species > 0) {
-      resourceApi.speciesAbilities(pokemon.species, generation).then(res => {
+      resourceApi.speciesAbilities(pokemon.species, generation, pokemon.form).then(res => {
         setSpeciesAbilities(res.data || []);
       }).catch((err: any) => {
         setSpeciesAbilities([]);
@@ -40,8 +49,22 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange }) => {
           stack: err?.message,
         });
       });
+
+      resourceApi.speciesExperience(pokemon.species, generation, pokemon.form).then(res => {
+        setExpTable(res.data?.expTable || []);
+      }).catch((err: any) => {
+        setExpTable([]);
+        useDiagnosticStore.getState().log({
+          category: 'api', level: 'error',
+          message: `加载经验成长表失败 (species=${pokemon.species})`,
+          stack: err?.message,
+        });
+      });
+    } else {
+      setSpeciesAbilities([]);
+      setExpTable([]);
     }
-  }, [pokemon.species, generation]);
+  }, [pokemon.species, pokemon.form, generation]);
 
   const abilityOptions = (speciesAbilities.length > 0 ? speciesAbilities : abilities)
     .map((a, i) => ({ value: a.id, label: a.name, key: `${a.id}_${i}` }));
@@ -105,10 +128,22 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange }) => {
       <Space style={{ width: '100%', marginTop: 8 }}>
         <div><div style={labelStyle}>等级</div>
           <InputNumber size="small" min={1} max={100} value={pokemon.level} style={{ width: 75 }}
-            onChange={(v) => set('level', v ?? 1)} /></div>
+            onChange={(v) => {
+              const level = v ?? 1;
+              pokemon.level = level;
+              if (expTable.length >= level)
+                pokemon.exp = expTable[Math.max(0, level - 1)];
+              ch();
+            }} /></div>
         <div><div style={labelStyle}>EXP</div>
           <InputNumber size="small" min={0} value={pokemon.exp} style={{ width: 110 }}
-            onChange={(v) => set('exp', v ?? 0)} /></div>
+            onChange={(v) => {
+              const exp = v ?? 0;
+              pokemon.exp = exp;
+              if (expTable.length > 0)
+                pokemon.level = getLevelFromExp(exp, expTable);
+              ch();
+            }} /></div>
         <div><div style={labelStyle}>亲密度</div>
           <InputNumber size="small" min={0} max={255} value={pokemon.originalTrainerFriendship} style={{ width: 80 }}
             onChange={(v) => set('originalTrainerFriendship', v ?? 0)} /></div>

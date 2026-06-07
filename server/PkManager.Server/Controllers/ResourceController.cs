@@ -13,7 +13,7 @@ public class ResourceController : ControllerBase
     private readonly UserContext _userContext;
 
     // Cache: species ID → valid ability IDs
-    private static readonly ConcurrentDictionary<(ushort Species, byte Form), int[]> _abilityCache = new();
+    private static readonly ConcurrentDictionary<(ushort Species, byte Form, byte Gen), int[]> _abilityCache = new();
     // Cache: species ID → valid move IDs per generation context
     private static readonly ConcurrentDictionary<(ushort Species, byte Form, byte Gen), int[]> _learnsetCache = new();
 
@@ -225,14 +225,14 @@ public class ResourceController : ControllerBase
     /// 获取指定物种的合法特性列表（带槽位标签，如"激流 (1)"、"激流 (2)"、"湿润之声 (H)"）
     /// </summary>
     [HttpGet("species/{speciesId:int}/abilities")]
-    public ActionResult<ApiResponse<List<ResourceItem>>> SpeciesAbilities(int speciesId, [FromQuery] int generation = 7)
+    public ActionResult<ApiResponse<List<ResourceItem>>> SpeciesAbilities(int speciesId, [FromQuery] int generation = 7, [FromQuery] int form = 0)
     {
         if (_userContext.UserId == null)
             return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
 
         try
         {
-            var abilities = GetValidAbilities((ushort)speciesId, 0, generation);
+            var abilities = GetValidAbilities((ushort)speciesId, (byte)Math.Max(0, form), generation);
             var strings = GameInfo.GetStrings("zh");
 
             // 槽位标签: 0=特性1, 1=特性2, 2=隐藏特性
@@ -267,14 +267,14 @@ public class ResourceController : ControllerBase
     /// 获取指定物种在当前世代可学习的招式列表
     /// </summary>
     [HttpGet("species/{speciesId:int}/moves")]
-    public ActionResult<ApiResponse<List<ResourceItem>>> SpeciesMoves(int speciesId, [FromQuery] int generation = 7)
+    public ActionResult<ApiResponse<List<ResourceItem>>> SpeciesMoves(int speciesId, [FromQuery] int generation = 7, [FromQuery] int form = 0)
     {
         if (_userContext.UserId == null)
             return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
 
         try
         {
-            var moveIds = GetLearnableMoves((ushort)speciesId, 0, generation);
+            var moveIds = GetLearnableMoves((ushort)speciesId, (byte)Math.Max(0, form), generation);
             var strings = GameInfo.GetStrings("zh");
 
             var items = new List<ResourceItem>();
@@ -293,17 +293,48 @@ public class ResourceController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// 获取指定物种的经验成长表，用于前端同步 EXP 和等级。
+    /// </summary>
+    [HttpGet("species/{speciesId:int}/experience")]
+    public ActionResult<ApiResponse<object>> SpeciesExperience(int speciesId, [FromQuery] int generation = 7, [FromQuery] int form = 0)
+    {
+        if (_userContext.UserId == null)
+            return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+
+        try
+        {
+            var pi = GetPersonalInfo((ushort)speciesId, (byte)Math.Max(0, form), generation);
+            var growth = pi.EXPGrowth;
+            var table = Experience.GetTable(growth).ToArray();
+            return Ok(ApiResponse<object>.Ok(new
+            {
+                growthRate = growth,
+                expTable = table,
+            }));
+        }
+        catch
+        {
+            return Ok(ApiResponse<object>.Ok(new
+            {
+                growthRate = 0,
+                expTable = Array.Empty<uint>(),
+            }));
+        }
+    }
+
     // ── 辅助方法 ──────────────────────────────────────
 
     private static int[] GetValidAbilities(ushort species, byte form, int generation)
     {
-        var key = (species, form);
+        var gen = (byte)Math.Clamp(generation, 1, 9);
+        var key = (species, form, gen);
         if (_abilityCache.TryGetValue(key, out var cached))
             return cached;
 
         try
         {
-            var pi = PersonalTable.USUM.GetFormEntry(species, form);
+            var pi = GetPersonalInfo(species, form, generation);
             var count = pi.AbilityCount;
             var abilities = new int[count];
             for (int i = 0; i < count; i++)
@@ -325,30 +356,80 @@ public class ResourceController : ControllerBase
         if (_learnsetCache.TryGetValue(key, out var cached))
             return cached;
 
-        var moveSet = new HashSet<int>();
-        var strings = GameInfo.GetStrings("zh").Move;
-
         try
         {
-            // Return all moves that exist in the game data (1 up to last valid move).
-            // Species-specific filtering is done by the frontend search + backend legality validation.
-            var maxMove = Math.Min(850, strings.Count - 1);
-            for (int i = 1; i <= maxMove; i++)
+            var version = GetRepresentativeVersion(generation);
+            var learnSource = GameData.GetLearnSource(version);
+            var moveSet = new HashSet<int>();
+
+            foreach (var move in learnSource.GetLearnset(species, form).GetAllMoves())
+                if (move > 0)
+                    moveSet.Add(move);
+
+            foreach (var move in learnSource.GetEggMoves(species, form))
+                if (move > 0)
+                    moveSet.Add(move);
+
+            var blank = EntityBlank.GetBlank((byte)Math.Clamp(generation, 1, 9));
+            blank.Species = species;
+            blank.Form = form;
+            blank.CurrentLevel = 100;
+            blank.Version = version;
+
+            var flags = new bool[Math.Max(1001, GameInfo.GetStrings("zh").Move.Count + 1)];
+            var evo = new EvoCriteria
             {
-                if (!string.IsNullOrEmpty(strings[i]))
+                Species = species,
+                Form = form,
+                LevelMin = 1,
+                LevelMax = 100,
+                LevelUpRequired = 0,
+                Method = EvolutionType.None,
+            };
+            learnSource.GetAllMoves(flags, blank, evo, MoveSourceType.ExternalSources);
+            for (int i = 1; i < flags.Length; i++)
+            {
+                if (flags[i])
                     moveSet.Add(i);
             }
+
+            var result = moveSet.OrderBy(x => x).ToArray();
+            _learnsetCache[key] = result;
+            return result;
         }
         catch
         {
-            for (int i = 1; i <= 850; i++)
-                moveSet.Add(i);
+            return Array.Empty<int>();
         }
-
-        var result = moveSet.OrderBy(x => x).ToArray();
-        _learnsetCache[key] = result;
-        return result;
     }
+
+    private static PersonalInfo GetPersonalInfo(ushort species, byte form, int generation) => generation switch
+    {
+        <= 1 => PersonalTable.Y.GetFormEntry(species, form),
+        2 => PersonalTable.C.GetFormEntry(species, form),
+        3 => PersonalTable.E.GetFormEntry(species, form),
+        4 => PersonalTable.HGSS.GetFormEntry(species, form),
+        5 => PersonalTable.B2W2.GetFormEntry(species, form),
+        6 => PersonalTable.AO.GetFormEntry(species, form),
+        7 => PersonalTable.USUM.GetFormEntry(species, form),
+        8 => PersonalTable.SWSH.GetFormEntry(species, form),
+        9 => PersonalTable.SV.GetFormEntry(species, form),
+        _ => PersonalTable.USUM.GetFormEntry(species, form),
+    };
+
+    private static GameVersion GetRepresentativeVersion(int generation) => generation switch
+    {
+        <= 1 => GameVersion.YW,
+        2 => GameVersion.C,
+        3 => GameVersion.E,
+        4 => GameVersion.HGSS,
+        5 => GameVersion.B2W2,
+        6 => GameVersion.ORAS,
+        7 => GameVersion.USUM,
+        8 => GameVersion.SWSH,
+        9 => GameVersion.SV,
+        _ => GameVersion.USUM,
+    };
 
     private static EntityContext GetEntityContext(int generation) => generation switch
     {

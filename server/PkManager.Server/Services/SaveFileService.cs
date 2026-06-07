@@ -37,6 +37,15 @@ public class SaveFileService
     private string GetBackupDir(Guid userId, Guid saveFileId) =>
         Path.Combine(GetSaveDir(userId, saveFileId), "backups");
 
+    private static PKHeX.Core.SaveFile ValidateWrittenSave(byte[] data)
+    {
+        var parseBuffer = (byte[])data.Clone();
+        var reparsed = SaveUtil.GetVariantSAV(parseBuffer);
+        if (reparsed == null)
+            throw new BusinessException("保存后的存档无法重新解析，已中止写入");
+        return reparsed;
+    }
+
     /// <summary>读取存档二进制：优先文件系统，回退 DB（旧数据兼容）</summary>
     private byte[] ReadSaveBytes(SaveFileEntity entity)
     {
@@ -290,7 +299,7 @@ public class SaveFileService
         var boxData = sav.GetBoxData(boxIndex);
         if (slotIndex < boxData.Length)
         {
-            boxData[slotIndex] = pkm;
+            boxData[slotIndex] = sav.GetCompatiblePKM(pkm);
             sav.SetBoxData(boxData, boxIndex);
             await WriteBackSave(sf, userId, sav);
         }
@@ -312,12 +321,23 @@ public class SaveFileService
     {
         var saveFile = LoadSaveFileEntityAsync(saveFileId, userId).Result;
         var rawData = ReadSaveBytes(saveFile);
-        var sav = SaveUtil.GetVariantSAV(rawData);
+        var sav = SaveUtil.GetVariantSAV((byte[])rawData.Clone());
         if (sav == null) return null;
         var boxData = sav.GetBoxData(boxIndex);
         if (slotIndex >= boxData.Length) return null;
         var pkm = boxData[slotIndex];
         return pkm.Species > 0 && pkm.Valid ? pkm : null;
+    }
+
+    public PKM? ReadPartySlot(Guid saveFileId, Guid userId, int slotIndex)
+    {
+        var saveFile = LoadSaveFileEntityAsync(saveFileId, userId).Result;
+        var rawData = ReadSaveBytes(saveFile);
+        var sav = SaveUtil.GetVariantSAV((byte[])rawData.Clone());
+        if (sav == null) return null;
+        if (slotIndex < 0 || slotIndex >= 6) return null;
+        var pkm = sav.GetPartySlotAtIndex(slotIndex);
+        return pkm != null && pkm.Species > 0 && pkm.Valid ? pkm : null;
     }
 
     public (int boxIndex, int slotIndex)? FindPokemonSlot(Guid saveFileId, Guid userId, Guid pokemonDbId) => null;
@@ -439,7 +459,7 @@ public class SaveFileService
     {
         var sf = await LoadSaveFileEntity(saveFileId, userId);
         var rawData = ReadSaveBytes(sf);
-        var sav = SaveUtil.GetVariantSAV(rawData)
+        var sav = SaveUtil.GetVariantSAV((byte[])rawData.Clone())
             ?? throw new BusinessException("无法解析存档格式");
         return (sf, sav);
     }
@@ -450,6 +470,7 @@ public class SaveFileService
         // 写入前自动备份
         await CreateBackup(sf.Id, userId, "编辑前自动备份");
         var data = sav.Write();
+        ValidateWrittenSave(data);
         await WriteSaveBytes(sf, userId, data);
     }
 

@@ -1,17 +1,19 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Row, Col, Typography, Button, Modal, List, Tag, Spin } from 'antd';
+import { Card, Row, Col, Typography, Button, Modal, List, Tag, Spin, App } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { BankOutlined, SaveOutlined, PlusOutlined } from '@ant-design/icons';
+import { BankOutlined, SaveOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { saveFileApi, type SaveFileInfo } from '../api/saveFile';
 import { useDiagnosticStore } from '../stores/diagnosticStore';
 import { PLAYABLE_GAMES, GAME_META } from '../constants/games';
 import { emulatorApi } from '../api/saveFile';
 import GameCover from '../components/GameCover';
+import { launchLocalSave } from '../lib/localLaunch';
 
 const { Title, Text } = Typography;
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { message } = App.useApp();
 
   // Modal state — selectedGame is null when closed
   const [selectedGame, setSelectedGame] = useState<{ gameId: string; displayName: string; generation: number } | null>(null);
@@ -59,11 +61,18 @@ const DashboardPage: React.FC = () => {
       });
   }, [selectedGame?.gameId, is3ds]);
 
-  const handleSelectSave = (saveFileId: string) => {
+  const handleSelectSave = async (saveFileId: string, filename?: string) => {
+    if (is3ds && !checkState.ready) {
+      message.warning(checkState.error || '本地模拟器未就绪');
+      return;
+    }
     setSelectedGame(null);
     if (is3ds) {
-      // 3DS: no WASM — navigate to save editor instead
-      window.open(`/saves/${saveFileId}`, '_blank');
+      try {
+        await launchLocalSave(saveFileId, message, filename);
+      } catch (err: any) {
+        message.error(err?.message || err?.response?.data?.message || '本机启动失败');
+      }
     } else {
       window.open(`/play${isNds ? '-nds' : ''}/${saveFileId}`, '_blank');
     }
@@ -73,7 +82,6 @@ const DashboardPage: React.FC = () => {
     if (!selectedGame) return;
     setSelectedGame(null);
     if (is3ds) {
-      // 3DS: navigate to saves page to create new game from there
       window.open(`/saves`, '_blank');
     } else {
       window.open(`/play${isNds ? '-nds' : ''}/new/${selectedGame.gameId}`, '_blank');
@@ -100,6 +108,15 @@ const DashboardPage: React.FC = () => {
             <BankOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 16 }} />
             <Title level={4}>我的银行</Title>
             <p>在线宝可梦收藏管理</p>
+            <Button type="primary">进入</Button>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={6}>
+          <Card hoverable onClick={() => navigate('/settings')}
+            style={{ textAlign: 'center', minHeight: 200 }}>
+            <SettingOutlined style={{ fontSize: 48, color: '#722ed1', marginBottom: 16 }} />
+            <Title level={4}>设置</Title>
+            <p>配置本地模拟器与协议启动</p>
             <Button type="primary">进入</Button>
           </Card>
         </Col>
@@ -149,13 +166,13 @@ const DashboardPage: React.FC = () => {
         ) : matchingSaves.length > 0 ? (
           <>
             <Text type="secondary" style={{ marginBottom: 12, display: 'block' }}>
-              选择已有存档继续游戏
+              {is3ds ? '选择已有存档后将直接本机游玩' : '选择已有存档继续游戏'}
             </Text>
             <List
               dataSource={matchingSaves}
               renderItem={(save) => (
                 <List.Item
-                  onClick={() => handleSelectSave(save.saveFileId)}
+                  onClick={() => handleSelectSave(save.saveFileId, save.filename)}
                   style={{ cursor: 'pointer', padding: '10px 12px', borderRadius: 6 }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#f6ffed'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ''; }}
@@ -165,8 +182,8 @@ const DashboardPage: React.FC = () => {
                     description={
                       <span>
                         {save.trainerName && <><Text>{save.trainerName}</Text> &middot; </>}
-                        <Tag color={save.generation >= 4 ? 'blue' : 'green'}>
-                          Gen{save.generation} {save.generation >= 4 ? 'NDS' : 'GBA'}
+                        <Tag color={save.generation >= 6 ? 'volcano' : save.generation >= 4 ? 'blue' : 'green'}>
+                          Gen{save.generation} {save.generation >= 6 ? '3DS' : save.generation >= 4 ? 'NDS' : 'GBA'}
                         </Tag>
                         {save.pokemonCount > 0 && <Text type="secondary"> {save.pokemonCount} 只宝可梦</Text>}
                       </span>
@@ -176,28 +193,36 @@ const DashboardPage: React.FC = () => {
               )}
               style={{ marginBottom: 16 }}
             />
-            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
-              <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
-                或者开始全新游戏
-              </Text>
-            </div>
+            {!is3ds && (
+              <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+                <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
+                  或者开始全新游戏
+                </Text>
+              </div>
+            )}
           </>
         ) : (
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <Text type="secondary">暂无{selectedGame?.displayName}存档</Text>
+            <Text type="secondary">
+              {is3ds
+                ? `暂无${selectedGame?.displayName}存档，请先上传你本机已绑定的 3DS 存档`
+                : `暂无${selectedGame?.displayName}存档`}
+            </Text>
           </div>
         )}
 
-        <Button
-          type="dashed"
-          block
-          size="large"
-          icon={<PlusOutlined />}
-          onClick={handleNewGame}
-          style={{ marginTop: matchingSaves.length > 0 ? 0 : 8, height: 48 }}
-        >
-          新游戏
-        </Button>
+        {!is3ds && (
+          <Button
+            type="dashed"
+            block
+            size="large"
+            icon={<PlusOutlined />}
+            onClick={handleNewGame}
+            style={{ marginTop: matchingSaves.length > 0 ? 0 : 8, height: 48 }}
+          >
+            新游戏
+          </Button>
+        )}
       </Modal>
     </div>
   );

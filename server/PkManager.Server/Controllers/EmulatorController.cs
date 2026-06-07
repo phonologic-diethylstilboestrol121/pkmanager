@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,7 @@ namespace PkManager.Server.Controllers;
 [Route("api/[controller]")]
 public class EmulatorController : ControllerBase
 {
+    private static readonly TimeSpan SyncTokenLifetime = TimeSpan.FromHours(12);
     private readonly NpgsqlConnection _db;
     private readonly SaveFileService _saveFileService;
     private readonly ParseService _parseService;
@@ -223,7 +225,20 @@ public class EmulatorController : ControllerBase
         if (string.IsNullOrEmpty(token)) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
 
         var userId = _userContext.UserId; // 优先使用 JWT 中间件解析的结果
-        if (userId == null)
+        var usedSyncToken = false;
+        if (_syncTokens.TryGetValue(token, out var syncEntry))
+        {
+            if (syncEntry.ExpiresAt < DateTime.UtcNow)
+            {
+                _syncTokens.TryRemove(token, out _);
+                return Unauthorized(ApiResponse<object>.Error(401, "同步 token 已过期"));
+            }
+            if (syncEntry.SaveFileId != saveFileId)
+                return Unauthorized(ApiResponse<object>.Error(401, "同步 token 不匹配"));
+            userId = syncEntry.UserId;
+            usedSyncToken = true;
+        }
+        else if (userId == null)
         {
             // JWT 中间件未解析（sendBeacon 可能不发送 Authorization header），手动解析 token
             try
@@ -295,6 +310,9 @@ public class EmulatorController : ControllerBase
                 "UPDATE save_files SET file_size=@Size, is_modified=TRUE, updated_at=NOW() WHERE id=@Id",
                 new { Id = saveFileId, Size = (long)data.Length });
         }
+
+        if (usedSyncToken)
+            _syncTokens.TryRemove(token, out _);
 
         return Ok(ApiResponse<object>.Ok(new { }, "存档已同步"));
     }
@@ -417,7 +435,7 @@ public class EmulatorController : ControllerBase
 
     // ── 本地模拟器启动框架 ──────────────────────────────────
 
-    /// <summary>预校验：检查模拟器配置和游戏是否就绪</summary>
+    /// <summary>预校验：检查模拟器配置是否就绪（仅检查路径已配置，不做服务器端文件存在校验，因路径指向浏览器所在机器）</summary>
     [HttpPost("check-local")]
     public async Task<ActionResult<ApiResponse<object>>> CheckLocal([FromBody] CheckLocalRequest req)
     {
@@ -433,58 +451,39 @@ public class EmulatorController : ControllerBase
         if (gen >= 6)
         {
             // ── 3DS Azahar ──
-            if (!emuSettings.TryGetValue("azahar.exe_path", out var exe) || string.IsNullOrWhiteSpace(exe))
+            if (!emuSettings.TryGetValue("azahar.exe_path", out var exeRaw) || string.IsNullOrWhiteSpace(exeRaw))
             {
                 result["azaharReady"] = false;
                 result["error"] = "未配置 Azahar 路径，请前往设置页配置";
                 return Ok(ApiResponse<object>.Ok(result));
             }
+            var exe = NormalizeExePath(exeRaw);
             result["exePath"] = exe;
-            result["exeExists"] = System.IO.File.Exists(exe);
-            if (!System.IO.File.Exists(exe))
-            {
-                result["azaharReady"] = false;
-                result["error"] = $"Azahar 可执行文件不存在: {exe}";
-                return Ok(ApiResponse<object>.Ok(result));
-            }
+            result["exeConfigured"] = true; // 路径已配置（不校验服务器端文件是否存在）
 
-            var dataDir = emuSettings.GetValueOrDefault("azahar.data_dir");
+            var dataDir = NormalizeDirPath(emuSettings.GetValueOrDefault("azahar.data_dir") ?? "");
             if (string.IsNullOrWhiteSpace(dataDir))
-                dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "azahar-emu");
+                dataDir = GetDefaultAzaharDataDir();
             result["dataDir"] = dataDir;
-
-            var contentFile = FindAzaharContentFile(dataDir, req.GameVersion ?? 0);
-            result["gameInstalled"] = contentFile != null;
-            if (contentFile == null)
-            {
-                result["azaharReady"] = false;
-                result["error"] = $"游戏 CIA 未安装或内容文件缺失";
-                return Ok(ApiResponse<object>.Ok(result));
-            }
-            result["contentPath"] = contentFile;
             result["azaharReady"] = true;
         }
         else
         {
             // ── NDS DeSmuME ──
-            if (!emuSettings.TryGetValue("desmume.exe_path", out var exe) || string.IsNullOrWhiteSpace(exe))
+            if (!emuSettings.TryGetValue("desmume.exe_path", out var exeRaw) || string.IsNullOrWhiteSpace(exeRaw))
             {
                 result["desmumeReady"] = false;
                 result["error"] = "未配置 DeSmuME 路径，请前往设置页配置";
                 return Ok(ApiResponse<object>.Ok(result));
             }
+            var exe = NormalizeExePath(exeRaw);
             result["exePath"] = exe;
-            result["exeExists"] = System.IO.File.Exists(exe);
-            if (!System.IO.File.Exists(exe))
-            {
-                result["desmumeReady"] = false;
-                result["error"] = $"DeSmuME 可执行文件不存在: {exe}";
-                return Ok(ApiResponse<object>.Ok(result));
-            }
+            result["exeConfigured"] = true;
 
             var rom = await _db.QueryFirstOrDefaultAsync<Models.Entity.RomFileEntity>(
                 "SELECT * FROM rom_files WHERE generation=@Gen AND local_path IS NOT NULL LIMIT 1", new { Gen = gen });
             result["romFound"] = rom != null;
+            result["romPath"] = rom?.LocalPath ?? "";
             if (rom == null)
             {
                 result["desmumeReady"] = false;
@@ -497,7 +496,10 @@ public class EmulatorController : ControllerBase
         return Ok(ApiResponse<object>.Ok(result, "ready"));
     }
 
-    /// <summary>启动本地模拟器（DeSmuME NDS / Azahar 3DS）</summary>
+    /// <summary>
+    /// 准备本地启动包 — 返回存档二进制 + 路径信息，由浏览器所在机器自行调起模拟器。
+    /// 服务器不做 Process.Start（可能和浏览器不在同一台机器）。
+    /// </summary>
     [HttpPost("launch-local/{saveFileId:guid}")]
     public async Task<ActionResult<ApiResponse<object>>> LaunchLocal(Guid saveFileId)
     {
@@ -513,118 +515,216 @@ public class EmulatorController : ControllerBase
         var deviceId = GetDeviceId();
         var emuSettings = await _settingsService.GetEmulatorSettings(userId.Value, deviceId);
 
-        string exePath; string? saveDir;
-        string? romArg = null; // ROM/app path to launch
+        // 读取 pkmanager 存档二进制
+        var pkSavePath = Path.Combine(_baseSaveDir, userId.ToString()!, saveFileId.ToString(), "save.sav");
+        if (!System.IO.File.Exists(pkSavePath))
+            return BadRequest(ApiResponse<object>.Error(400, "存档文件不存在"));
 
-        if (gen >= 6) // 3DS → Azahar（CIA 已安装，传入 .app 内容文件直接启动）
+        var saveData = await System.IO.File.ReadAllBytesAsync(pkSavePath);
+        var saveDataBase64 = Convert.ToBase64String(saveData);
+        var syncToken = CreateSyncToken(saveFileId, userId.Value);
+
+        await _saveFileService.CreateBackup(saveFileId, userId.Value, "启动本地模拟器前");
+
+        string emulatorType;
+        string exePath;
+        string saveDir;
+        string? romPath = null;   // ROM / .app 文件路径
+        string? emuSavePath = null; // 模拟器存档应写入的位置
+        string? launchArgs = null;  // 模拟器命令行参数
+
+        if (gen >= 6)
         {
-            if (!emuSettings.TryGetValue("azahar.exe_path", out var azExe) || string.IsNullOrWhiteSpace(azExe))
+            // ── 3DS Azahar ──
+            emulatorType = "azahar";
+            if (!emuSettings.TryGetValue("azahar.exe_path", out var azExeRaw) || string.IsNullOrWhiteSpace(azExeRaw))
                 return BadRequest(ApiResponse<object>.Error(400, "未配置 Azahar 路径，请前往 /settings 设置"));
-            exePath = azExe;
-            saveDir = emuSettings.GetValueOrDefault("azahar.data_dir");
-
-            // 找到已安装标题的 .app 内容文件（用于直接启动进游戏）
-            romArg = FindAzaharContentFile(saveDir!, gameVersion);
-        }
-        else // Gen4-5 → DeSmuME（需 ROM 文件）
-        {
-            if (!emuSettings.TryGetValue("desmume.exe_path", out var dsExe) || string.IsNullOrWhiteSpace(dsExe))
-                return BadRequest(ApiResponse<object>.Error(400, "未配置 DeSmuME 路径，请前往 /settings 设置"));
-            exePath = dsExe;
-            saveDir = emuSettings.GetValueOrDefault("desmume.save_dir");
+            exePath = NormalizeExePath(azExeRaw);
+            saveDir = NormalizeDirPath(emuSettings.GetValueOrDefault("azahar.data_dir") ?? "");
             if (string.IsNullOrWhiteSpace(saveDir))
-                saveDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "desmume");
-            // Fallback: use XDG_CONFIG_HOME or ~/.config/desmume
-            if (!Directory.Exists(saveDir!))
-                saveDir = Path.Combine(
-                    Environment.GetEnvironmentVariable("XDG_CONFIG_HOME")
-                    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config"),
-                    "desmume");
+                saveDir = GetDefaultAzaharDataDir();
+
+            // 内容文件路径（.app，用于 Azahar 直接启动）— 仅构造路径，不做服务器端校验
+            romPath = ConstructAzaharContentPath(saveDir, gameVersion);
+            emuSavePath = GetAzaharSavePath(saveDir, gameVersion);
+            launchArgs = $"\"{romPath}\"";
+        }
+        else
+        {
+            // ── NDS DeSmuME ──
+            emulatorType = "desmume";
+            if (!emuSettings.TryGetValue("desmume.exe_path", out var dsExeRaw) || string.IsNullOrWhiteSpace(dsExeRaw))
+                return BadRequest(ApiResponse<object>.Error(400, "未配置 DeSmuME 路径，请前往 /settings 设置"));
+            exePath = NormalizeExePath(dsExeRaw);
+            saveDir = NormalizeDirPath(emuSettings.GetValueOrDefault("desmume.save_dir") ?? "");
+            if (string.IsNullOrWhiteSpace(saveDir))
+                saveDir = GetDefaultDeSmuMESaveDir();
 
             var rom = await _db.QueryFirstOrDefaultAsync<Models.Entity.RomFileEntity>(
                 "SELECT * FROM rom_files WHERE generation=@Gen AND local_path IS NOT NULL LIMIT 1",
                 new { Gen = gen });
             if (rom == null) return BadRequest(ApiResponse<object>.Error(400, "未找到对应 NDS ROM，请先导入"));
-            romArg = rom.LocalPath ?? rom.GameId;
+            romPath = rom.LocalPath ?? rom.GameId;
+
+            var romFileName = Path.GetFileNameWithoutExtension(romPath);
+            emuSavePath = Path.Combine(saveDir, $"{romFileName}.dsv");
+            launchArgs = $"\"{romPath}\"";
         }
 
-        if (!System.IO.File.Exists(exePath))
-            return BadRequest(ApiResponse<object>.Error(400, $"模拟器可执行文件不存在: {exePath}"));
+        // 返回启动包给前端：存档数据 + 所有路径信息
+        return Ok(ApiResponse<object>.Ok(new
+        {
+            type = emulatorType,
+            generation = gen,
+            gameVersion,
+            titleIdLow = gen >= 6 ? GetTitleIdLow(gameVersion) : null,
+            // 模拟器可执行文件路径（用户配置的，在浏览器所在机器上）
+            exePath,
+            saveDir,
+            // ROM / .app 内容文件路径
+            romPath,
+            gameInstalled = romPath != null,
+            // 模拟器存档应写入的路径
+            emuSavePath,
+            // 启动命令行参数
+            launchArgs,
+            // pkmanager 存档二进制 (base64)，前端写入模拟器存档目录
+            saveDataBase64,
+            fileName = save.Filename,
+            saveFileId,
+            syncToken,
+        }, "启动包已就绪，请由浏览器端调起模拟器"));
+    }
 
-        // 复制存档到模拟器目录
+    // ── 临时启动 Token（供本地协议处理器使用）───────────────
+
+    /// <summary>临时 token → 启动包 映射（5分钟过期）</summary>
+    private static readonly ConcurrentDictionary<string, (LaunchPackage Package, DateTime ExpiresAt)> _launchTokens = new();
+    private static readonly ConcurrentDictionary<string, (Guid SaveFileId, Guid UserId, DateTime ExpiresAt)> _syncTokens = new();
+
+    /// <summary>创建临时启动 token（供本地协议处理器免认证获取启动包）</summary>
+    [HttpPost("launch-token/{saveFileId:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> CreateLaunchToken(Guid saveFileId)
+    {
+        var userId = _userContext.UserId;
+        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+
+        // 复用 LaunchLocal 的逻辑构建启动包
+        var save = await _db.QueryFirstOrDefaultAsync<Models.Entity.SaveFile>(
+            "SELECT * FROM save_files WHERE id=@Id AND user_id=@Uid", new { Id = saveFileId, Uid = userId });
+        if (save == null) return NotFound();
+
+        var gen = save.Generation;
+        var gameVersion = save.GameVersion ?? 0;
+        var deviceId = GetDeviceId();
+        var emuSettings = await _settingsService.GetEmulatorSettings(userId.Value, deviceId);
+
         var pkSavePath = Path.Combine(_baseSaveDir, userId.ToString()!, saveFileId.ToString(), "save.sav");
         if (!System.IO.File.Exists(pkSavePath))
             return BadRequest(ApiResponse<object>.Error(400, "存档文件不存在"));
 
-        await _saveFileService.CreateBackup(saveFileId, userId.Value, "启动本地模拟器前");
+        var saveData = await System.IO.File.ReadAllBytesAsync(pkSavePath);
+        var saveDataBase64 = Convert.ToBase64String(saveData);
+        var syncToken = CreateSyncToken(saveFileId, userId.Value);
 
-        string emuSavePath;
+        string exePath, saveDir, romPath, emuSavePath, launchArgs, emulatorType;
+
         if (gen >= 6)
         {
-            // 3DS Azahar: 写入 title 目录下的 main 文件（CIA 已安装）
-            emuSavePath = GetAzaharSavePath(saveDir!, gameVersion);
+            emulatorType = "azahar";
+            if (!emuSettings.TryGetValue("azahar.exe_path", out var azExeRaw) || string.IsNullOrWhiteSpace(azExeRaw))
+                return BadRequest(ApiResponse<object>.Error(400, "未配置 Azahar 路径"));
+            exePath = NormalizeExePath(azExeRaw);
+            saveDir = NormalizeDirPath(emuSettings.GetValueOrDefault("azahar.data_dir") ?? "");
+            if (string.IsNullOrWhiteSpace(saveDir)) saveDir = GetDefaultAzaharDataDir();
+            romPath = ConstructAzaharContentPath(saveDir, gameVersion);
+            emuSavePath = GetAzaharSavePath(saveDir, gameVersion);
+            launchArgs = $"\"{romPath}\"";
         }
         else
         {
-            // NDS DeSmuME: save_dir/{rom_name}.dsv
-            var romFileName = Path.GetFileNameWithoutExtension(romArg!);
-            emuSavePath = Path.Combine(saveDir ?? Path.GetDirectoryName(exePath)!, $"{romFileName}.dsv");
+            emulatorType = "desmume";
+            if (!emuSettings.TryGetValue("desmume.exe_path", out var dsExeRaw) || string.IsNullOrWhiteSpace(dsExeRaw))
+                return BadRequest(ApiResponse<object>.Error(400, "未配置 DeSmuME 路径"));
+            exePath = NormalizeExePath(dsExeRaw);
+            saveDir = NormalizeDirPath(emuSettings.GetValueOrDefault("desmume.save_dir") ?? "");
+            if (string.IsNullOrWhiteSpace(saveDir)) saveDir = GetDefaultDeSmuMESaveDir();
+            var rom = await _db.QueryFirstOrDefaultAsync<Models.Entity.RomFileEntity>(
+                "SELECT * FROM rom_files WHERE generation=@Gen AND local_path IS NOT NULL LIMIT 1", new { Gen = gen });
+            if (rom == null) return BadRequest(ApiResponse<object>.Error(400, "未找到 ROM"));
+            romPath = rom.LocalPath ?? rom.GameId;
+            var romFileName = Path.GetFileNameWithoutExtension(romPath);
+            emuSavePath = Path.Combine(saveDir, $"{romFileName}.dsv");
+            launchArgs = $"\"{romPath}\"";
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(emuSavePath)!);
-
-        // ③ 备份 Azahar/DeSmuME 本地存档 → pkmanager_backup/
-        var backupDir = Path.Combine(saveDir ?? Path.GetDirectoryName(exePath)!, "pkmanager_backup");
-        if (gen >= 6) backupDir = Path.Combine(backupDir, GetTitleIdLow(gameVersion));
-        Directory.CreateDirectory(backupDir);
-        var backupPath = Path.Combine(backupDir, gen >= 6 ? "main.bak" : "save.dsv.bak");
-        bool hadLocalSave = System.IO.File.Exists(emuSavePath);
-        if (hadLocalSave)
+        var token = Guid.NewGuid().ToString("N");
+        _launchTokens[token] = (new LaunchPackage
         {
-            System.IO.File.Copy(emuSavePath, backupPath, overwrite: true);
-            System.IO.File.WriteAllText(Path.Combine(backupDir, "injected_at.txt"),
-                DateTime.UtcNow.ToString("o"));
-        }
+            ExePath = exePath, SaveDir = saveDir, RomPath = romPath,
+            EmuSavePath = emuSavePath, LaunchArgs = launchArgs, Type = emulatorType,
+            SaveDataBase64 = saveDataBase64, Generation = gen, GameVersion = gameVersion,
+            TitleIdLow = GetTitleIdLow(gameVersion), FileName = save.Filename,
+            SaveFileId = saveFileId, SyncToken = syncToken,
+        }, DateTime.UtcNow.AddMinutes(5));
 
-        // ④ 注入 pkmanager 存档 → 模拟器目录
-        System.IO.File.Copy(pkSavePath, emuSavePath, overwrite: true);
+        // 清理过期 token
+        foreach (var kv in _launchTokens.Where(kv => kv.Value.ExpiresAt < DateTime.UtcNow).ToList())
+            _launchTokens.TryRemove(kv.Key, out _);
 
-        // ⑤ 写入 pid.lock（防并发）
-        var pidLockPath = Path.Combine(saveDir ?? "", "pkmanager_backup", "pid.lock");
-        Directory.CreateDirectory(Path.GetDirectoryName(pidLockPath)!);
-
-        // 启动模拟器
-        try
+        var backendBase = $"{Request.Scheme}://{Request.Host}";
+        return Ok(ApiResponse<object>.Ok(new
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = exePath,
-                Arguments = $"\"{romArg}\"",
-                UseShellExecute = true,
-                WindowStyle = ProcessWindowStyle.Normal,
-            };
+            token,
+            protocolUrl = $"pkmanager://launch/{token}?backend={Uri.EscapeDataString(backendBase)}",
+        }, "token 已创建，5分钟内有效"));
+    }
 
-            var process = Process.Start(psi);
-            if (process == null)
-                return StatusCode(500, ApiResponse<object>.Error(500, "模拟器启动失败"));
+    /// <summary>通过临时 token 获取启动包（免认证，一次性使用）</summary>
+    [HttpGet("launch-package/{token}")]
+    public ActionResult<ApiResponse<object>> GetLaunchPackage(string token)
+    {
+        if (!_launchTokens.TryRemove(token, out var entry))
+            return NotFound(ApiResponse<object>.Error(404, "token 无效或已过期"));
 
-            var pid = process.Id;
-            _runningProcesses[pid] = (saveFileId, userId.Value, emuSavePath);
+        if (entry.ExpiresAt < DateTime.UtcNow)
+            return StatusCode(410, ApiResponse<object>.Error(410, "token 已过期"));
 
-            // 写入 pid.lock
-            System.IO.File.WriteAllText(pidLockPath, $"{pid}\n{saveFileId}\n{DateTime.UtcNow:o}");
-
-            return Ok(ApiResponse<object>.Ok(new
-            {
-                pid, status = "launched", type = gen >= 6 ? "azahar" : "desmume",
-                backedUp = hadLocalSave, isFirstLaunch = !hadLocalSave,
-                backupPath,
-            }, "模拟器已启动"));
-        }
-        catch (Exception ex)
+        var p = entry.Package;
+        return Ok(ApiResponse<object>.Ok(new
         {
-            return StatusCode(500, ApiResponse<object>.Error(500, $"启动失败: {ex.Message}"));
-        }
+            p.Type, p.Generation, p.GameVersion, p.ExePath, p.SaveDir,
+            p.RomPath, p.EmuSavePath, p.LaunchArgs, p.SaveDataBase64,
+            p.TitleIdLow, p.FileName, p.SaveFileId, p.SyncToken,
+        }));
+    }
+
+    private static string CreateSyncToken(Guid saveFileId, Guid userId)
+    {
+        var token = Guid.NewGuid().ToString("N");
+        _syncTokens[token] = (saveFileId, userId, DateTime.UtcNow.Add(SyncTokenLifetime));
+        foreach (var kv in _syncTokens.Where(kv => kv.Value.ExpiresAt < DateTime.UtcNow).ToList())
+            _syncTokens.TryRemove(kv.Key, out _);
+        return token;
+    }
+
+    // ── 临时 Token 数据模型 ────────────────────────────────
+
+    public class LaunchPackage
+    {
+        public string ExePath { get; set; } = "";
+        public string SaveDir { get; set; } = "";
+        public string RomPath { get; set; } = "";
+        public string EmuSavePath { get; set; } = "";
+        public string LaunchArgs { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string SaveDataBase64 { get; set; } = "";
+        public int Generation { get; set; }
+        public int GameVersion { get; set; }
+        public string TitleIdLow { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public Guid SaveFileId { get; set; }
+        public string SyncToken { get; set; } = "";
     }
 
     /// <summary>从本地模拟器同步回存档</summary>
@@ -645,15 +745,16 @@ public class EmulatorController : ControllerBase
         var gameVersion = save.GameVersion ?? 0;
         string? saveDir;
         if (gen >= 6)
-            saveDir = emuSettings.GetValueOrDefault("azahar.data_dir");
+        {
+            saveDir = NormalizeDirPath(emuSettings.GetValueOrDefault("azahar.data_dir") ?? "");
+            if (string.IsNullOrWhiteSpace(saveDir))
+                saveDir = GetDefaultAzaharDataDir();
+        }
         else
         {
-            saveDir = emuSettings.GetValueOrDefault("desmume.save_dir");
+            saveDir = NormalizeDirPath(emuSettings.GetValueOrDefault("desmume.save_dir") ?? "");
             if (string.IsNullOrWhiteSpace(saveDir))
-                saveDir = Path.Combine(
-                    Environment.GetEnvironmentVariable("XDG_CONFIG_HOME")
-                    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config"),
-                    "desmume");
+                saveDir = GetDefaultDeSmuMESaveDir();
         }
         if (string.IsNullOrWhiteSpace(saveDir))
             return BadRequest(ApiResponse<object>.Error(400, "模拟器存档目录未配置"));
@@ -751,15 +852,16 @@ public class EmulatorController : ControllerBase
 
         string? saveDir;
         if (gen >= 6)
-            saveDir = emuSettings.GetValueOrDefault("azahar.data_dir");
+        {
+            saveDir = NormalizeDirPath(emuSettings.GetValueOrDefault("azahar.data_dir") ?? "");
+            if (string.IsNullOrWhiteSpace(saveDir))
+                saveDir = GetDefaultAzaharDataDir();
+        }
         else
         {
-            saveDir = emuSettings.GetValueOrDefault("desmume.save_dir");
+            saveDir = NormalizeDirPath(emuSettings.GetValueOrDefault("desmume.save_dir") ?? "");
             if (string.IsNullOrWhiteSpace(saveDir))
-                saveDir = Path.Combine(
-                    Environment.GetEnvironmentVariable("XDG_CONFIG_HOME")
-                    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config"),
-                    "desmume");
+                saveDir = GetDefaultDeSmuMESaveDir();
         }
         if (string.IsNullOrWhiteSpace(saveDir))
             return BadRequest(ApiResponse<object>.Error(400, "模拟器目录未配置"));
@@ -868,6 +970,50 @@ public class EmulatorController : ControllerBase
 
     private static readonly ConcurrentDictionary<int, (Guid SaveFileId, Guid UserId, string EmuSavePath)> _runningProcesses = new();
 
+    /// <summary>检测当前操作系统是否为 Windows</summary>
+    private static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+    /// <summary>获取 Azahar 默认用户数据目录（按 OS 适配）</summary>
+    private static string GetDefaultAzaharDataDir()
+    {
+        if (IsWindows)
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "azahar-emu");
+        else
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "azahar-emu");
+    }
+
+    /// <summary>获取 DeSmuME 默认存档目录（按 OS 适配）</summary>
+    private static string GetDefaultDeSmuMESaveDir()
+    {
+        if (IsWindows)
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DeSmuME");
+        else
+            return Path.Combine(
+                Environment.GetEnvironmentVariable("XDG_CONFIG_HOME")
+                ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config"),
+                "desmume");
+    }
+
+    /// <summary>规范化用户输入路径（将 Windows 反斜杠统一转为正斜杠，方便跨平台处理）</summary>
+    private static string NormalizeExePath(string rawPath)
+    {
+        if (string.IsNullOrWhiteSpace(rawPath)) return rawPath;
+        // 去除首尾空格和引号
+        var trimmed = rawPath.Trim().Trim('"', '\'');
+        // Windows: 统一反斜杠为正斜杠（.NET 内部 API 兼容两者）
+        if (IsWindows) return trimmed.Replace('/', '\\');
+        return trimmed;
+    }
+
+    /// <summary>规范化用户输入目录路径</summary>
+    private static string NormalizeDirPath(string rawPath)
+    {
+        if (string.IsNullOrWhiteSpace(rawPath)) return rawPath;
+        var trimmed = rawPath.Trim().Trim('"', '\'');
+        if (IsWindows) return trimmed.Replace('/', '\\');
+        return trimmed;
+    }
+
     private Guid GetDeviceId()
     {
         var header = Request.Headers["X-Device-Id"].FirstOrDefault();
@@ -885,33 +1031,40 @@ public class EmulatorController : ControllerBase
     private static string GetTitleIdLow(int gameVersion) =>
         _3dsTitleIds.GetValueOrDefault(gameVersion, "00055D00");
 
+    /// <summary>
+    /// 解析 Azahar sdmc 目录路径。
+    /// 用户配置的 dataDir 可能包含 sdmc 也可能不包含，这里统一处理：
+    /// - 如果 dataDir 以 sdmc 结尾 → 直接返回（用户配的就是 sdmc 目录）
+    /// - 否则 → 返回 dataDir/sdmc（用户配的是 sdmc 的父目录）
+    /// </summary>
+    private static string ResolveAzaharSdmcPath(string dataDir)
+    {
+        var trimmed = dataDir.TrimEnd('/', '\\');
+        if (trimmed.EndsWith("sdmc", StringComparison.OrdinalIgnoreCase))
+            return trimmed;
+        return Path.Combine(trimmed, "sdmc");
+    }
+
+    /// <summary>构建 Azahar 存档路径（不校验服务器端文件是否存在，路径指向浏览器所在机器）</summary>
     private static string GetAzaharSavePath(string dataDir, int gameVersion)
     {
+        var sdmc = ResolveAzaharSdmcPath(dataDir);
         var tidLow = GetTitleIdLow(gameVersion);
-
-        // Path: sdmc/Nintendo 3DS/<ID0>/<ID1>/title/00040000/<tid_low>/data/00000001/main
-        return Path.Combine(dataDir, "sdmc", "Nintendo 3DS",
+        return Path.Combine(sdmc, "Nintendo 3DS",
             "00000000000000000000000000000000",
             "00000000000000000000000000000000",
             "title", "00040000", tidLow, "data", "00000001", "main");
     }
 
-    /// <summary>在 Azahar 安装目录中找到游戏的 .app 内容文件（用于直接启动）</summary>
-    private static string? FindAzaharContentFile(string dataDir, int gameVersion)
+    /// <summary>构建 Azahar 内容文件路径（.app，用于直接启动游戏）。不做服务器端文件校验。</summary>
+    private static string ConstructAzaharContentPath(string dataDir, int gameVersion)
     {
+        var sdmc = ResolveAzaharSdmcPath(dataDir);
         var tidLow = GetTitleIdLow(gameVersion);
-
-        var contentDir = Path.Combine(dataDir, "sdmc", "Nintendo 3DS",
+        // 优先返回 00000000.app（主程序内容文件）
+        return Path.Combine(sdmc, "Nintendo 3DS",
             "00000000000000000000000000000000", "00000000000000000000000000000000",
-            "title", "00040000", tidLow, "content");
-
-        if (!System.IO.Directory.Exists(contentDir)) return null;
-
-        // 优先 00000000.app（主程序），否则取第一个 .app 文件
-        var mainApp = Path.Combine(contentDir, "00000000.app");
-        if (System.IO.File.Exists(mainApp)) return mainApp;
-
-        return System.IO.Directory.GetFiles(contentDir, "*.app").FirstOrDefault();
+            "title", "00040000", tidLow, "content", "00000000.app");
     }
 }
 

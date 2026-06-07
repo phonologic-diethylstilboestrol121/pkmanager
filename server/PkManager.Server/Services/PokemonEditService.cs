@@ -59,6 +59,12 @@ public class PokemonEditService
     /// </summary>
     public void ApplyEditsToPkm(PKM pkm, PokemonEditRequest request)
     {
+        var originalLevel = pkm.CurrentLevel;
+        var originalExp = pkm.EXP;
+        var growth = pkm.PersonalInfo.EXPGrowth;
+        var levelChanged = request.Level.HasValue && request.Level.Value != originalLevel;
+        var expChanged = request.EXP.HasValue && (uint)request.EXP.Value != originalExp;
+
         // ── Main Tab ──────────────────────────────────────
         if (request.Species.HasValue)
             pkm.Species = (ushort)request.Species.Value;
@@ -102,9 +108,6 @@ public class PokemonEditService
         if (request.IsEgg.HasValue)
             pkm.IsEgg = request.IsEgg.Value;
 
-        if (request.Level.HasValue)
-            pkm.CurrentLevel = (byte)request.Level.Value;
-
         if (request.HeldItem.HasValue)
             pkm.HeldItem = request.HeldItem.Value;
 
@@ -123,8 +126,23 @@ public class PokemonEditService
         if (request.Language.HasValue)
             pkm.Language = request.Language.Value;
 
-        if (request.EXP.HasValue)
-            pkm.EXP = (uint)request.EXP.Value;
+        if (levelChanged && expChanged)
+        {
+            var requestedExp = (uint)request.EXP!.Value;
+            var derivedLevel = Experience.GetLevel(requestedExp, growth);
+            if (derivedLevel == request.Level!.Value)
+                pkm.EXP = requestedExp;
+            else
+                pkm.CurrentLevel = (byte)request.Level.Value;
+        }
+        else if (levelChanged)
+        {
+            pkm.CurrentLevel = (byte)request.Level!.Value;
+        }
+        else if (expChanged)
+        {
+            pkm.EXP = (uint)request.EXP!.Value;
+        }
 
         if (request.Friendship.HasValue)
             pkm.OriginalTrainerFriendship = (byte)request.Friendship.Value;

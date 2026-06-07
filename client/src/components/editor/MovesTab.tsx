@@ -22,7 +22,7 @@ const MovesTab: React.FC<Props> = ({ pokemon, generation, onChange }) => {
   const [speciesMoves, setSpeciesMoves] = useState<ResourceItem[]>([]);
   useEffect(() => {
     if (pokemon.species > 0) {
-      resourceApi.speciesMoves(pokemon.species, generation).then(res => {
+      resourceApi.speciesMoves(pokemon.species, generation, pokemon.form).then(res => {
         setSpeciesMoves(res.data || []);
       }).catch((err: any) => {
         setSpeciesMoves([]);
@@ -32,8 +32,10 @@ const MovesTab: React.FC<Props> = ({ pokemon, generation, onChange }) => {
           stack: err?.message,
         });
       });
+    } else {
+      setSpeciesMoves([]);
     }
-  }, [pokemon.species, generation]);
+  }, [pokemon.species, pokemon.form, generation]);
 
   const baseMoves = speciesMoves.length > 0 ? speciesMoves : (moves || []);
   const moveOptions = [{ value: 0, label: '— 无 —' }, ...baseMoves.map(m => ({ value: m.id, label: m.name }))];

@@ -29,6 +29,23 @@ const bankItemId = (bankId: string) => `bank:${bankId}`;
 const bankDropId = 'bank-drop-zone';
 const parseSaveSlot = (id: string) => ({ boxIndex: +id.split(':')[1], slotIndex: +id.split(':')[2] });
 
+const getDownloadFileName = (contentDisposition?: string, fallback = 'save.sav') => {
+  if (!contentDisposition) return fallback;
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const plainMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+  if (plainMatch?.[1]) return plainMatch[1];
+  return fallback;
+};
+
 // ── Draggable Slot Component ─────────────────────────
 const DraggableSlot: React.FC<{
   boxIndex: number; slot: BoxSlotDto; onPokemonClick?: (p: PokemonDto) => void;
@@ -304,8 +321,29 @@ const SaveEditor: React.FC = () => {
     }
   };
 
-  const handleSave = async () => { if (!id) return; try { await saveFileApi.save(id); message.success('存档已保存'); } catch { message.error('保存失败'); } };
-  const handleDownload = () => { if (id) window.open(`/api/SaveFile/${id}/download`, '_blank'); };
+  const handleSave = async () => { if (!id) return; try { await saveFileApi.save(id); message.success('已创建备份'); } catch { message.error('创建备份失败'); } };
+  const handleDownload = async () => {
+    if (!id) return;
+    try {
+      const res = await saveFileApi.download(id);
+      const blob = res.data as Blob;
+      const fileName = getDownloadFileName(
+        res.headers['content-disposition'],
+        saveData?.filename || `save_${id}.sav`,
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      message.success(`已导出存档：${fileName}`);
+    } catch {
+      message.error('导出失败');
+    }
+  };
   const handleBatchLegalityScan = async () => {
     if (!id) return;
     setLegalityScanning(true);
@@ -349,7 +387,7 @@ const SaveEditor: React.FC = () => {
               <Button icon={<SafetyCertificateOutlined />} onClick={handleBatchLegalityScan}
                 loading={legalityScanning}>合法性扫描</Button>
             </Tooltip>
-            <Tooltip title="保存到服务端"><Button icon={<SaveOutlined />} onClick={handleSave}>保存</Button></Tooltip>
+            <Tooltip title="手动创建备份"><Button icon={<SaveOutlined />} onClick={handleSave}>备份</Button></Tooltip>
             <Tooltip title="导出下载"><Button icon={<DownloadOutlined />} onClick={handleDownload}>导出</Button></Tooltip>
           </Space>
         </div>
