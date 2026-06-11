@@ -1,0 +1,149 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║        PkManager — Unified Configuration File               ║
+# ║        宝可梦全世代管理平台 — 统一配置文件                        ║
+# ╠══════════════════════════════════════════════════════════════╣
+# ║  First-time setup / 首次配置:                                ║
+# ║    cp config.dst config        # copy template / 复制模板     ║
+# ║    edit config                 # fill real values / 填入真实值 ║
+# ╠══════════════════════════════════════════════════════════════╣
+# ║  config     = development (real secrets, GITIGNORED)         ║
+# ║              开发环境 — 含真实机密，Git 忽略                    ║
+# ║  config.dst = public template (placeholders, COMMITTED)      ║
+# ║              对外发布模板 — 占位符，Git 提交                    ║
+# ╠══════════════════════════════════════════════════════════════╣
+# ║  Format / 格式: KEY=VALUE                                   ║
+# ║  Comments / 注释: lines starting with # / # 开头为注释          ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+
+# ──────────────────────────────────────────────────────────
+#  DATABASE / 数据库
+#  PostgreSQL 14 connection parameters
+#  本地 PostgreSQL 14 连接参数
+# ──────────────────────────────────────────────────────────
+
+# Host address of the PostgreSQL server
+# PostgreSQL 服务器主机地址
+# Default / 默认: localhost
+DB_HOST=localhost
+
+# TCP port PostgreSQL listens on
+# PostgreSQL TCP 监听端口
+# Default / 默认: 5432
+DB_PORT=5432
+
+# Database name to connect to
+# 要连接的数据库名称
+# Default / 默认: pkmanager
+DB_NAME=pkmanager
+
+# Login username (must have full privileges on the database)
+# 登录用户名（需要对数据库有完整权限）
+# Default / 默认: pkadmin
+DB_USER=pkadmin
+
+# Login password
+# 登录密码
+# ⚠ CHANGE THIS to a strong password / 务必改为强密码
+DB_PASSWORD=change-me
+
+
+# ──────────────────────────────────────────────────────────
+#  JWT AUTHENTICATION / JWT 认证
+#  JSON Web Token signing & validation parameters
+#  JSON Web Token 签名与验证参数
+# ──────────────────────────────────────────────────────────
+
+# HMAC-SHA256 signing secret key
+# HMAC-SHA256 签名密钥
+# ⚠ Must be at least 64 characters for HS256 algorithm security
+#   必须至少 64 个字符以保证 HS256 算法安全性
+#   Generate one with / 生成方式: openssl rand -base64 64
+JWT_SECRET=change-me-at-least-64-characters-long-for-hs256-security
+
+# Token issuer claim — identifies this service
+# Token 签发者声明 — 标识本服务
+# Keep as-is unless running multiple PkManager instances
+# 除非运行多个 PkManager 实例，否则保持默认
+JWT_ISSUER=PkManager
+
+# Token audience claim — intended consumer of the token
+# Token 受众声明 — Token 的目标消费者
+JWT_AUDIENCE=PkManager-Client
+
+# Access token lifetime in hours
+# 访问 Token 有效期（小时）
+# After expiry, use refresh token to obtain a new access token
+# 过期后需用 refresh token 获取新的 access token
+JWT_EXPIRE_HOURS=2
+
+# Refresh token lifetime in days
+# 刷新 Token 有效期（天）
+# Used to silently obtain new access tokens without re-login
+# 用于无感刷新 access token，无需重新登录
+JWT_REFRESH_EXPIRE_DAYS=7
+
+
+# ──────────────────────────────────────────────────────────
+#  SERVER PORTS / 服务器端口
+#  ASP.NET Kestrel HTTP & HTTPS listening ports
+#  ASP.NET Kestrel HTTP 与 HTTPS 监听端口
+# ──────────────────────────────────────────────────────────
+
+# HTTP plaintext port — also used for Swagger docs
+# HTTP 明文端口 — Swagger 文档也在此端口
+# Internal use only on local machine / 仅本机内部使用
+SERVER_HTTP_PORT=5000
+
+# HTTPS port — also the target of Vite dev proxy
+# HTTPS 端口 — 前端 Vite 开发代理的目标地址
+# Must match VITE_API_TARGET below / 需与下方 VITE_API_TARGET 一致
+SERVER_HTTPS_PORT=5001
+
+
+# ──────────────────────────────────────────────────────────
+#  HTTPS CERTIFICATE / HTTPS 证书
+#  Self-signed .pfx certificate for Kestrel HTTPS
+#  Kestrel HTTPS 使用的自签 .pfx 证书
+# ──────────────────────────────────────────────────────────
+
+# Password protecting the .pfx certificate file
+# .pfx 证书文件的保护密码
+# Certificate location / 证书位置: certs/cert.pfx
+# ⚠ CHANGE THIS to a strong password in production
+#   生产环境务必改为强密码
+CERT_PFX_PASSWORD=change-me
+
+
+# ──────────────────────────────────────────────────────────
+#  FRONTEND DEV SERVER / 前端开发服务器
+#  Vite development server configuration
+#  Vite 开发服务器配置
+# ──────────────────────────────────────────────────────────
+
+# Vite dev server listening port (HTTPS, self-signed cert)
+# Vite 开发服务器监听端口（HTTPS，自签证书）
+# Browsers access / 浏览器访问: https://localhost:5173
+VITE_DEV_PORT=5173
+
+# Backend API target for Vite proxy
+# Vite 开发代理的后端 API 目标地址
+# All /api/* requests are forwarded to this URL
+# 所有 /api/* 请求会被代理到此地址
+# Must match SERVER_HTTPS_PORT / 需与 SERVER_HTTPS_PORT 一致
+VITE_API_TARGET=https://localhost:5001
+
+
+# ──────────────────────────────────────────────────────────
+#  LOGGING / 日志
+#  Application log level (ASP.NET standard levels)
+#  应用日志级别（ASP.NET 标准日志级别）
+# ──────────────────────────────────────────────────────────
+
+# Minimum log level for application logs
+# 应用日志的最低级别
+# Valid values / 可选值:
+#   Trace, Debug, Information, Warning, Error, Critical, None
+# Development / 开发: Information
+# Production / 生产: Warning
+LOG_LEVEL=Information
