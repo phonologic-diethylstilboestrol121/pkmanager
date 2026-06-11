@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <PKHeXCoreVersion>26.5.5</PKHeXCoreVersion>
-    <PKHeXCoreLocalFeed>$(MSBuildThisFileDirectory)artifacts/nuget</PKHeXCoreLocalFeed>
+    <PKHeXCoreLocalFeed>$(MSBuildThisFileDirectory)../artifacts/nuget</PKHeXCoreLocalFeed>
     <RestoreAdditionalProjectSources>$(PKHeXCoreLocalFeed);$(RestoreAdditionalProjectSources)</RestoreAdditionalProjectSources>
   </PropertyGroup>
 </Project>

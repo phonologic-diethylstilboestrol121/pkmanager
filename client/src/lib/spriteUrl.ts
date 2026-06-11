@@ -5,7 +5,7 @@ const BASE = import.meta.env.BASE_URL; // 适配部署基路径，dev 环境为 
 
 /** 标准 96×96 精灵图本地路径 */
 export function getPokemonSpriteUrl(speciesId: number): string {
-  return `${BASE}sprites/pokemon/${speciesId}.png`;
+  return `${BASE}assets/sprites/pokemon/${speciesId}.png`;
 }
 
 /** 远端回退 URL — PokeAPI standard sprite（jsdelivr CDN） */

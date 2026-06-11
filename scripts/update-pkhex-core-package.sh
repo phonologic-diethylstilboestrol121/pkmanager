@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SDK_PROJECT="$ROOT_DIR/sdk/PKHeX/PKHeX.Core/PKHeX.Core.csproj"
 SDK_PROPS="$ROOT_DIR/sdk/PKHeX/Directory.Build.props"
-ROOT_PROPS="$ROOT_DIR/Directory.Build.props"
+ROOT_PROPS="$ROOT_DIR/server/PkManager.Server/Directory.Build.props"
 CONFIG="${1:-Release}"
-FEED_DIR="$ROOT_DIR/artifacts/nuget"
+FEED_DIR="$ROOT_DIR/server/artifacts/nuget"
 
 if [ ! -f "$SDK_PROJECT" ]; then
     echo "[ERROR] PKHeX.Core source project not found: $SDK_PROJECT" >&2
@@ -14,7 +14,7 @@ if [ ! -f "$SDK_PROJECT" ]; then
 fi
 
 if [ ! -f "$ROOT_PROPS" ]; then
-    echo "[ERROR] Root Directory.Build.props not found: $ROOT_PROPS" >&2
+    echo "[ERROR] Directory.Build.props not found: $ROOT_PROPS" >&2
     exit 1
 fi
 

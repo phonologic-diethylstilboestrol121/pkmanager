@@ -2,7 +2,7 @@
 // 项目的唯一游戏数据源。Dashboard、Saves、SaveEditor、mgba.ts、melonds.ts 统一引用此处。
 //
 // 优先级：
-//   1. gameId → 封面图路径  /covers/{gameId}.png
+//   1. gameId → 封面图路径  /assets/covers/{gameId}.png
 //   2. 封面图不存在 → 彩色占位卡片（color + shortName + platform Tag）
 
 export type GamePlatform = 'GBA' | 'NDS' | '3DS' | 'Switch';

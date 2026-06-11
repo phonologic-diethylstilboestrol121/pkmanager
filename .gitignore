@@ -4,6 +4,7 @@
 *.user
 .DS_Store
 .env
+config
 CLAUDE.md
 .vs/
 .vscode/
@@ -13,6 +14,8 @@ bin/
 build/
 data/
 dist/
+docs/
+roms/
 node_modules/
 obj/
 publish/
@@ -20,4 +23,5 @@ server/PkManager.Server/data/
 tmp/
 sdk/
 lib/PKHeX.Core/
-artifacts/nuget/
+server/artifacts/nuget/
+certs/

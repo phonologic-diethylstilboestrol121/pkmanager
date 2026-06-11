@@ -9,14 +9,73 @@ using PkManager.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── 加载根目录 config 文件（KEY=VALUE 格式）─────────────────
+// 配置值通过 builder.Configuration 注入，兼容 appsettings.json 的嵌套键（如 Jwt:Secret）
+var configPath = Path.Combine(builder.Environment.ContentRootPath, "..", "..", "config");
+if (File.Exists(configPath))
+{
+    foreach (var line in File.ReadAllLines(configPath))
+    {
+        var trimmed = line.Trim();
+        if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith('#')) continue;
+        var eq = trimmed.IndexOf('=');
+        if (eq <= 0) continue;
+        var configKey = trimmed[..eq].Trim();
+        var configValue = trimmed[(eq + 1)..].Trim();
+
+        switch (configKey)
+        {
+            case "DB_HOST":
+            case "DB_PORT":
+            case "DB_NAME":
+            case "DB_USER":
+            case "DB_PASSWORD":
+                // 构建连接字符串（等所有 DB_* 读取完毕后组装）
+                break;
+            case "JWT_SECRET":
+                builder.Configuration["Jwt:Secret"] = configValue;
+                break;
+            case "JWT_ISSUER":
+                builder.Configuration["Jwt:Issuer"] = configValue;
+                break;
+            case "JWT_AUDIENCE":
+                builder.Configuration["Jwt:Audience"] = configValue;
+                break;
+            case "JWT_EXPIRE_HOURS":
+                builder.Configuration["Jwt:ExpireHours"] = configValue;
+                break;
+            case "JWT_REFRESH_EXPIRE_DAYS":
+                builder.Configuration["Jwt:RefreshExpireDays"] = configValue;
+                break;
+            default:
+                // 其他 key 直接作为顶级配置注入
+                builder.Configuration[configKey] = configValue;
+                break;
+        }
+    }
+
+    // 用 config 文件值构建连接字符串
+    var dbHost = builder.Configuration["DB_HOST"] ?? "localhost";
+    var dbPort = builder.Configuration["DB_PORT"] ?? "5432";
+    var dbName = builder.Configuration["DB_NAME"] ?? "pkmanager";
+    var dbUser = builder.Configuration["DB_USER"] ?? "pkadmin";
+    var dbPass = builder.Configuration["DB_PASSWORD"] ?? "";
+    builder.Configuration["ConnectionStrings:Default"] =
+        $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPass}";
+}
+
 // HTTPS — mGBA WASM 需要 SharedArrayBuffer（浏览器仅对 localhost 或 HTTPS 启用）
+var httpPort = builder.Configuration.GetValue("SERVER_HTTP_PORT", 5000);
+var httpsPort = builder.Configuration.GetValue("SERVER_HTTPS_PORT", 5001);
+var certPassword = builder.Configuration["CERT_PFX_PASSWORD"] ?? "change-me";
+
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(5000); // HTTP
-    options.ListenAnyIP(5001, listenOptions =>
+    options.ListenAnyIP(httpPort); // HTTP
+    options.ListenAnyIP(httpsPort, listenOptions =>
     {
-        var certPath = Path.Combine(builder.Environment.ContentRootPath, "..", "cert.pfx");
-        listenOptions.UseHttps(certPath, "pkmanager123");
+        var certPath = Path.Combine(builder.Environment.ContentRootPath, "..", "..", "certs", "cert.pfx");
+        listenOptions.UseHttps(certPath, certPassword);
     });
 });
 
@@ -25,9 +84,7 @@ Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 // ── 数据库连接 ──────────────────────────────────────────
 var connectionString = builder.Configuration.GetConnectionString("Default")!;
-// 将 {PGDATA} 占位符替换为基于 ContentRootPath 的绝对 socket 路径（不依赖 CWD）
-var pgData = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "data", "pgdata"));
-connectionString = connectionString.Replace("{PGDATA}", pgData);
+
 builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
 builder.Services.AddScoped<Npgsql.NpgsqlConnection>(sp =>
 {

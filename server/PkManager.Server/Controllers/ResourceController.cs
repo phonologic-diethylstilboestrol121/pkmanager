@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using Dapper;
 using Microsoft.AspNetCore.Mvc;
+using Npgsql;
 using PKHeX.Core;
 using PkManager.Server.Helpers;
 using PkManager.Server.Models.Response;
@@ -11,29 +13,47 @@ namespace PkManager.Server.Controllers;
 public class ResourceController : ControllerBase
 {
     private readonly UserContext _userContext;
+    private readonly NpgsqlConnection _db;
 
     // Cache: species ID → valid ability IDs
     private static readonly ConcurrentDictionary<(ushort Species, byte Form, byte Gen), int[]> _abilityCache = new();
     // Cache: species ID → valid move IDs per generation context
     private static readonly ConcurrentDictionary<(ushort Species, byte Form, byte Gen), int[]> _learnsetCache = new();
 
-    public ResourceController(UserContext userContext)
+    // 37 个球种 item ID（与 PKHeX GameStrings.cs:54 Items_Ball 一致）
+    private static readonly int[] BallItemIds =
+    {
+        0,    1,    2,    3,    4,    5,    6,    7,    8,    9,
+        10,   11,   12,   13,   14,   15,   16,   492,  493,  494,
+        495,  496,  497,  498,  499,  576,  851,
+        1785, 1710, 1711, 1712, 1713, 1746, 1747, 1748, 1749, 1750, 1771,
+    };
+
+    public ResourceController(UserContext userContext, NpgsqlConnection db)
     {
         _userContext = userContext;
+        _db = db;
     }
 
     /// <summary>
-    /// 宝可梦物种列表（简体中文）
+    /// 宝可梦物种列表（DB 优先，PKHeX 回退）
     /// </summary>
     [HttpGet("species")]
-    public ActionResult<ApiResponse<List<ResourceItem>>> Species([FromQuery] int? generation)
+    public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Species([FromQuery] int? generation)
     {
         if (_userContext.UserId == null)
             return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
 
-        var strings = GameInfo.GetStrings("zh");
-        var items = new List<ResourceItem>();
+        // 优先从 DB 读取
+        var items = (await _db.QueryAsync<ResourceItem>(
+            "SELECT id, name FROM res_species WHERE lang = 'zh-Hans' AND id >= 1 AND name != '' ORDER BY id"))
+            .ToList();
 
+        if (items.Count > 0)
+            return Ok(ApiResponse<List<ResourceItem>>.Ok(items));
+
+        // 回退 PKHeX（DB 未播种）
+        var strings = GameInfo.GetStrings("zh");
         for (int i = 1; i < strings.Species.Count; i++)
         {
             var name = strings.Species[i];
@@ -45,17 +65,23 @@ public class ResourceController : ControllerBase
     }
 
     /// <summary>
-    /// 招式列表（简体中文）
+    /// 招式列表（DB 优先，PKHeX 回退）
     /// </summary>
     [HttpGet("moves")]
-    public ActionResult<ApiResponse<List<ResourceItem>>> Moves([FromQuery] int? generation)
+    public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Moves([FromQuery] int? generation)
     {
         if (_userContext.UserId == null)
             return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
 
-        var strings = GameInfo.GetStrings("zh");
-        var items = new List<ResourceItem>();
+        var items = (await _db.QueryAsync<ResourceItem>(
+            "SELECT id, name FROM res_moves WHERE lang = 'zh-Hans' AND id >= 1 AND name != '' ORDER BY id"))
+            .ToList();
 
+        if (items.Count > 0)
+            return Ok(ApiResponse<List<ResourceItem>>.Ok(items));
+
+        // 回退 PKHeX
+        var strings = GameInfo.GetStrings("zh");
         for (int i = 1; i < strings.Move.Count; i++)
         {
             var name = strings.Move[i];
@@ -67,17 +93,23 @@ public class ResourceController : ControllerBase
     }
 
     /// <summary>
-    /// 特性列表（简体中文）
+    /// 特性列表（DB 优先，PKHeX 回退）
     /// </summary>
     [HttpGet("abilities")]
-    public ActionResult<ApiResponse<List<ResourceItem>>> Abilities()
+    public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Abilities()
     {
         if (_userContext.UserId == null)
             return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
 
-        var strings = GameInfo.GetStrings("zh");
-        var items = new List<ResourceItem>();
+        var items = (await _db.QueryAsync<ResourceItem>(
+            "SELECT id, name FROM res_abilities WHERE lang = 'zh-Hans' AND id >= 1 AND name != '' ORDER BY id"))
+            .ToList();
 
+        if (items.Count > 0)
+            return Ok(ApiResponse<List<ResourceItem>>.Ok(items));
+
+        // 回退 PKHeX
+        var strings = GameInfo.GetStrings("zh");
         for (int i = 1; i < strings.Ability.Count; i++)
         {
             var name = strings.Ability[i];
@@ -89,17 +121,23 @@ public class ResourceController : ControllerBase
     }
 
     /// <summary>
-    /// 性格列表（简体中文）
+    /// 性格列表（DB 优先，PKHeX 回退）
     /// </summary>
     [HttpGet("natures")]
-    public ActionResult<ApiResponse<List<ResourceItem>>> Natures()
+    public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Natures()
     {
         if (_userContext.UserId == null)
             return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
 
-        var strings = GameInfo.GetStrings("zh");
-        var items = new List<ResourceItem>();
+        var items = (await _db.QueryAsync<ResourceItem>(
+            "SELECT id, name FROM res_natures WHERE lang = 'zh-Hans' AND id >= 0 AND name != '' ORDER BY id"))
+            .ToList();
 
+        if (items.Count > 0)
+            return Ok(ApiResponse<List<ResourceItem>>.Ok(items));
+
+        // 回退 PKHeX
+        var strings = GameInfo.GetStrings("zh");
         for (int i = 0; i < Math.Min(25, strings.Natures.Count); i++)
         {
             var name = strings.Natures[i];
@@ -111,17 +149,23 @@ public class ResourceController : ControllerBase
     }
 
     /// <summary>
-    /// 道具列表（简体中文）
+    /// 道具列表（DB 优先，PKHeX 回退）
     /// </summary>
     [HttpGet("items")]
-    public ActionResult<ApiResponse<List<ResourceItem>>> Items()
+    public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Items()
     {
         if (_userContext.UserId == null)
             return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
 
-        var strings = GameInfo.GetStrings("zh");
-        var items = new List<ResourceItem>();
+        var items = (await _db.QueryAsync<ResourceItem>(
+            "SELECT id, name FROM res_items WHERE lang = 'zh-Hans' AND id >= 0 AND name != '' ORDER BY id"))
+            .ToList();
 
+        if (items.Count > 0)
+            return Ok(ApiResponse<List<ResourceItem>>.Ok(items));
+
+        // 回退 PKHeX
+        var strings = GameInfo.GetStrings("zh");
         for (int i = 0; i < strings.Item.Count; i++)
         {
             var name = strings.Item[i];
@@ -133,29 +177,45 @@ public class ResourceController : ControllerBase
     }
 
     /// <summary>
-    /// 球种列表（简体中文）
+    /// 球种列表（从 res_items 按球种 item ID 派生，PKHeX 回退）
     /// </summary>
     [HttpGet("balls")]
-    public ActionResult<ApiResponse<List<ResourceItem>>> Balls()
+    public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Balls()
     {
         if (_userContext.UserId == null)
             return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
 
-        // 从 PKHeX.Core 字符串表获取中文球种名称
-        var strings = GameInfo.GetStrings("zh");
-        var items = new List<ResourceItem>();
+        // 优先从 DB 派生（res_items 按球种 ID 取值，与 PKHeX GameStrings.balllist 构造逻辑一致）
+        var ballNames = (await _db.QueryAsync<(int id, string name)>(
+            "SELECT id, name FROM res_items WHERE lang = 'zh-Hans' AND id = ANY(@Ids)",
+            new { Ids = BallItemIds }))
+            .ToDictionary(x => x.id, x => x.name);
 
+        if (ballNames.Count > 0)
+        {
+            var items = BallItemIds
+                .Select((itemId, i) => new ResourceItem { Id = i, Name = ballNames.GetValueOrDefault(itemId, "") })
+                .Where(x => !string.IsNullOrEmpty(x.Name))
+                .ToList();
+
+            if (items.Count > 0)
+                return Ok(ApiResponse<List<ResourceItem>>.Ok(items));
+        }
+
+        // 回退 PKHeX
+        var strings = GameInfo.GetStrings("zh");
+        var fallback = new List<ResourceItem>();
         if (strings.balllist != null)
         {
             for (int i = 0; i < strings.balllist.Length; i++)
             {
                 var name = strings.balllist[i];
                 if (!string.IsNullOrEmpty(name))
-                    items.Add(new ResourceItem { Id = i, Name = name });
+                    fallback.Add(new ResourceItem { Id = i, Name = name });
             }
         }
 
-        return Ok(ApiResponse<List<ResourceItem>>.Ok(items));
+        return Ok(ApiResponse<List<ResourceItem>>.Ok(fallback));
     }
 
     /// <summary>

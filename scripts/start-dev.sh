@@ -10,8 +10,8 @@ PGDATA="$PROJECT_DIR/data/pgdata"
 PG_LOG="$PGDATA/logfile"
 SERVER_DIR="$PROJECT_DIR/server/PkManager.Server"
 CLIENT_DIR="$PROJECT_DIR/client"
-PKHEX_FEED_DIR="$PROJECT_DIR/artifacts/nuget"
-PKHEX_PROPS="$PROJECT_DIR/Directory.Build.props"
+PKHEX_FEED_DIR="$PROJECT_DIR/server/artifacts/nuget"
+PKHEX_PROPS="$PROJECT_DIR/server/PkManager.Server/Directory.Build.props"
 
 # ── 加载根目录 config 文件 ────────────────────────────
 CONFIG_FILE="$PROJECT_DIR/config"

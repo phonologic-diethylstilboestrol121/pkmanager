@@ -52,7 +52,7 @@ const GameCover: React.FC<GameCoverProps> = ({
       ? getGameMetaByVersion(gameVersion)
       : undefined;
 
-  const coverPath = meta ? `/covers/${meta.gameId}.png` : undefined;
+  const coverPath = meta ? `${import.meta.env.BASE_URL}assets/covers/${meta.gameId}.png` : undefined;
   const hasCustomCover = coverPath && !imgError;
 
   // Size presets

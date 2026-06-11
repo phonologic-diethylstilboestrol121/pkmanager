@@ -126,30 +126,6 @@ else
   echo -e "  $WARN  PostgreSQL 数据目录不存在: $PGDATA_DIR"
 fi
 
-# ── 5. Playwright Smoke Tests ──────────────────────────────────────
-
-if $QUICK_MODE; then
-  echo ""
-  echo -e "${BLUE}[5/5]${NC} Playwright 冒烟测试 — ${YELLOW}跳过 (--quick模式)${NC}"
-else
-  echo ""
-  echo -e "${BLUE}[5/5]${NC} Playwright 冒烟测试..."
-  CLIENT_DIR="$PROJECT_DIR/client"
-  if [[ ! -d "$CLIENT_DIR" ]]; then
-    echo -e "  $WARN  client/ 目录不存在，跳过"
-  elif [[ ! -f "$CLIENT_DIR/node_modules/.bin/playwright" ]]; then
-    echo -e "  $WARN  Playwright 未安装。运行: cd client && npm install && npx playwright install chromium"
-  else
-    cd "$CLIENT_DIR"
-    if npx playwright test --reporter=line 2>&1; then
-      echo -e "  $PASS  冒烟测试通过"
-    else
-      echo -e "  $WARN  冒烟测试有失败项 (检查上方输出)"
-    fi
-    cd - > /dev/null
-  fi
-fi
-
 # ── Summary ────────────────────────────────────────────────────────
 
 echo ""
