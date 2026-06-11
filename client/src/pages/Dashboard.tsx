@@ -13,6 +13,15 @@ import { launchLocalSave } from '../lib/localLaunch';
 
 const { Title, Text } = Typography;
 
+type WorkbenchCardStyle = React.CSSProperties & Record<'--dashboard-card-accent', string>;
+
+const createWorkbenchCardStyle = (accent: string): WorkbenchCardStyle => ({
+  height: '100%',
+  borderColor: `${accent}26`,
+  background: `linear-gradient(180deg, var(--bg-surface, #ffffff) 0%, ${accent}10 100%)`,
+  '--dashboard-card-accent': accent,
+});
+
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
@@ -49,6 +58,35 @@ const DashboardPage: React.FC = () => {
   const isNds = selectedMeta?.platform === 'NDS';
   const is3ds = selectedMeta?.platform === '3DS';
   const [checkState, setCheckState] = useState<{ loading: boolean; ready?: boolean; error?: string }>({ loading: false });
+  const featureCards = [
+    {
+      key: 'saves',
+      title: '存档管理',
+      description: '上传、整理并快速打开你的游戏存档',
+      buttonLabel: '进入',
+      accent: '#1677ff',
+      icon: <SaveOutlined style={{ fontSize: 56, color: '#1677ff' }} />,
+      onClick: () => navigate('/saves'),
+    },
+    {
+      key: 'bank',
+      title: '我的银行',
+      description: '集中收藏、编辑与回收你的宝可梦',
+      buttonLabel: '进入',
+      accent: '#52c41a',
+      icon: <BankOutlined style={{ fontSize: 56, color: '#52c41a' }} />,
+      onClick: () => navigate('/bank'),
+    },
+    {
+      key: 'settings',
+      title: '设置',
+      description: '调整模拟器配置与本机启动偏好',
+      buttonLabel: '配置',
+      accent: '#fa8c16',
+      icon: <SettingOutlined style={{ fontSize: 56, color: '#fa8c16' }} />,
+      onClick: () => navigate('/settings'),
+    },
+  ];
 
   // 3DS 游戏：打开 Modal 时预校验 Azahar
   useEffect(() => {
@@ -111,43 +149,67 @@ const DashboardPage: React.FC = () => {
     >
       <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
         {/* 功能入口 */}
-        <Col xs={24} sm={12} md={8} lg={6}>
-          <Card hoverable onClick={() => navigate('/saves')}
-            style={{ textAlign: 'center', minHeight: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <SaveOutlined style={{ fontSize: 56, color: '#1890ff', marginBottom: 12 }} />
-            <Title level={4} style={{ marginBottom: 4 }}>存档管理</Title>
-            <Text type="secondary">上传和管理你的游戏存档</Text>
-            <Button type="primary" style={{ marginTop: 16 }}>进入</Button>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={8} lg={6}>
-          <Card hoverable onClick={() => navigate('/bank')}
-            style={{ textAlign: 'center', minHeight: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <BankOutlined style={{ fontSize: 56, color: '#52c41a', marginBottom: 12 }} />
-            <Title level={4} style={{ marginBottom: 4 }}>我的银行</Title>
-            <Text type="secondary">宝可梦在线收藏与交换</Text>
-            <Button type="primary" style={{ marginTop: 16 }}>进入</Button>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={8} lg={6}>
-          <Card hoverable onClick={() => navigate('/settings')}
-            style={{ textAlign: 'center', minHeight: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <SettingOutlined style={{ fontSize: 56, color: '#722ed1', marginBottom: 12 }} />
-            <Title level={4} style={{ marginBottom: 4 }}>设置</Title>
-            <Text type="secondary">模拟器配置与启动偏好</Text>
-            <Button type="primary" style={{ marginTop: 16 }}>进入</Button>
-          </Card>
-        </Col>
+        {featureCards.map((card) => (
+          <Col key={card.key} xs={24} sm={12} md={8} lg={6} style={{ display: 'flex' }}>
+            <Card
+              hoverable
+              className="dashboard-workbench-card"
+              onClick={card.onClick}
+              style={createWorkbenchCardStyle(card.accent)}
+            >
+              <div className="dashboard-workbench-card__media">
+                <div
+                  className="dashboard-workbench-card__icon-shell"
+                  style={{
+                    background: `linear-gradient(180deg, ${card.accent}24 0%, ${card.accent}10 100%)`,
+                    boxShadow: `inset 0 0 0 1px ${card.accent}2a`,
+                  }}
+                >
+                  {card.icon}
+                </div>
+              </div>
+              <Title level={4} className="dashboard-workbench-card__title">{card.title}</Title>
+              <Text type="secondary" className="dashboard-workbench-card__description">
+                {card.description}
+              </Text>
+              <Button
+                type="primary"
+                className="dashboard-workbench-card__button"
+                style={{
+                  background: card.accent,
+                  borderColor: card.accent,
+                  boxShadow: `0 12px 22px ${card.accent}33`,
+                }}
+              >
+                {card.buttonLabel}
+              </Button>
+            </Card>
+          </Col>
+        ))}
 
         {/* 可玩游戏卡片 (当前仅开放 GBA/NDS/3DS 已适配游戏) — 按发行日期排序 */}
         {PLAYABLE_GAMES.map(game => (
-          <Col key={game.gameId} xs={24} sm={12} md={8} lg={6}>
-            <Card hoverable onClick={() => setSelectedGame({ gameId: game.gameId, displayName: game.displayName, generation: game.generation })}
-              style={{ textAlign: 'center', minHeight: 300, borderColor: game.color }}>
-              <GameCover gameId={game.gameId} />
-              <Title level={4} style={{ marginTop: 8 }}>游玩{game.shortName}</Title>
-              <p>{game.displayName}</p>
-              <Button type="primary" style={{ background: game.color, borderColor: game.color }}>
+          <Col key={game.gameId} xs={24} sm={12} md={8} lg={6} style={{ display: 'flex' }}>
+            <Card
+              hoverable
+              className="dashboard-workbench-card"
+              onClick={() => setSelectedGame({ gameId: game.gameId, displayName: game.displayName, generation: game.generation })}
+              style={createWorkbenchCardStyle(game.color)}
+            >
+              <div className="dashboard-workbench-card__media">
+                <GameCover gameId={game.gameId} />
+              </div>
+              <Title level={4} className="dashboard-workbench-card__title">游玩{game.shortName}</Title>
+              <Text type="secondary" className="dashboard-workbench-card__description">{game.displayName}</Text>
+              <Button
+                type="primary"
+                className="dashboard-workbench-card__button"
+                style={{
+                  background: game.color,
+                  borderColor: game.color,
+                  boxShadow: `0 12px 22px ${game.color}33`,
+                }}
+              >
                 开始游戏
               </Button>
             </Card>
