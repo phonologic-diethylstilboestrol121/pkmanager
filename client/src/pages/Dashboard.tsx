@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Row, Col, Typography, Button, Modal, List, Tag, Spin, App } from 'antd';
+import { Card, Row, Col, Typography, Button, Modal, List, Tag, Spin, App, Segmented } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { BankOutlined, SaveOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
+import { BankOutlined, SaveOutlined, PlusOutlined, SettingOutlined, SunOutlined, MoonOutlined, DesktopOutlined } from '@ant-design/icons';
+import { useTheme, type ThemeMode } from '../components/ThemeProvider';
 import { saveFileApi, type SaveFileInfo } from '../api/saveFile';
 import { useDiagnosticStore } from '../stores/diagnosticStore';
 import { PLAYABLE_GAMES, GAME_META } from '../constants/games';
 import { emulatorApi } from '../api/saveFile';
 import GameCover from '../components/GameCover';
+import PageContainer from '../components/PageContainer';
 import { launchLocalSave } from '../lib/localLaunch';
 
 const { Title, Text } = Typography;
@@ -14,6 +16,7 @@ const { Title, Text } = Typography;
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
 
   // Modal state — selectedGame is null when closed
   const [selectedGame, setSelectedGame] = useState<{ gameId: string; displayName: string; generation: number } | null>(null);
@@ -91,8 +94,21 @@ const DashboardPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: 32, maxWidth: 1200, margin: '0 auto' }}>
-      <Title level={2}>工作台</Title>
+    <PageContainer
+      title="工作台"
+      extra={
+        <Segmented
+          size="small"
+          options={[
+            { value: 'light' as ThemeMode, icon: <SunOutlined /> },
+            { value: 'dark' as ThemeMode, icon: <MoonOutlined /> },
+            { value: 'system' as ThemeMode, icon: <DesktopOutlined /> },
+          ]}
+          value={themeMode}
+          onChange={(v) => setThemeMode(v as ThemeMode)}
+        />
+      }
+    >
       <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
         {/* 功能入口 */}
         <Col xs={24} sm={12} md={8} lg={6}>
@@ -238,7 +254,7 @@ const DashboardPage: React.FC = () => {
           </Button>
         )}
       </Modal>
-    </div>
+    </PageContainer>
   );
 };
 

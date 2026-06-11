@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Form, Input, Button, App, Typography, Space, Divider } from 'antd';
 import { SaveOutlined, DesktopOutlined, ThunderboltOutlined, DownloadOutlined } from '@ant-design/icons';
-import { useSettingsStore } from '../stores/settingsStore';
 import { useNavigate } from 'react-router-dom';
+import { useSettingsStore } from '../stores/settingsStore';
+import PageContainer from '../components/PageContainer';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 // ── Form field keys ────────────────────────────────────────────────
 
@@ -50,8 +51,7 @@ const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: 32, maxWidth: 800, margin: '0 auto' }}>
-      <Title level={2}>设置</Title>
+    <PageContainer title="设置" backTo="/dashboard" maxWidth={800}>
 
       <Form form={form} layout="vertical">
         {/* ── DeSmuME (NDS) ── */}
@@ -154,7 +154,7 @@ const SettingsPage: React.FC = () => {
       <Text type="secondary" style={{ fontSize: 12 }}>
         这些设置按设备独立存储。换电脑后需要重新配置。
       </Text>
-    </div>
+    </PageContainer>
   );
 };
 

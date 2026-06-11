@@ -3,6 +3,7 @@ import { Modal, Button, Typography, App, Tag, Tooltip, Space } from 'antd';
 import { SwapOutlined, StarFilled } from '@ant-design/icons';
 import { type BoxDto, type LegalityStatus, saveFileApi } from '../api/saveFile';
 import PokemonSprite from './PokemonSprite';
+import type { SpriteStyle } from '../lib/spriteUrl';
 
 const { Text } = Typography;
 
@@ -15,6 +16,7 @@ interface Props {
   saveFileId: string;
   onSelectBox: (boxIndex: number) => void;
   onSwapped: () => void; // refresh after swap
+  spriteStyle?: SpriteStyle;
 }
 
 // ── Helper: legality color ──────────────────────────────────────────
@@ -35,7 +37,8 @@ const MiniSlot: React.FC<{
   isAlpha?: boolean;
   canGigantamax?: boolean;
   legalityStatus?: LegalityStatus;
-}> = ({ isEmpty, species, isShiny, isAlpha, canGigantamax, legalityStatus }) => {
+  spriteStyle?: SpriteStyle;
+}> = ({ isEmpty, species, isShiny, isAlpha, canGigantamax, legalityStatus, spriteStyle }) => {
   const color = legalityDotColor(legalityStatus);
 
   if (isEmpty) {
@@ -57,8 +60,8 @@ const MiniSlot: React.FC<{
     }}>
       <PokemonSprite
         speciesId={species!}
+        variant={spriteStyle}
         width={22} height={22}
-        style={{ imageRendering: 'pixelated' as React.CSSProperties['imageRendering'] }}
       />
       {isShiny && (
         <StarFilled style={{
@@ -93,7 +96,7 @@ const MiniSlot: React.FC<{
 
 const AllBoxesModal: React.FC<Props> = ({
   open, onClose, boxes, legalityMap, activeBox,
-  saveFileId, onSelectBox, onSwapped,
+  saveFileId, onSelectBox, onSwapped, spriteStyle,
 }) => {
   const { message } = App.useApp();
   const [swappingBox, setSwappingBox] = useState<number | null>(null);
@@ -203,6 +206,7 @@ const AllBoxesModal: React.FC<Props> = ({
                       isAlpha={slot.pokemon?.isAlpha}
                       canGigantamax={slot.pokemon?.canGigantamax}
                       legalityStatus={legalityMap[slotKey]}
+                      spriteStyle={spriteStyle}
                     />
                   );
                 })}

@@ -2,22 +2,23 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   Typography, Card, Input, Select, Switch, Row, Col, Pagination,
   Tag, Empty, App, Button, Popconfirm, Space,
-  Checkbox, Modal, Radio,
+  Checkbox, Modal, Radio, Segmented,
 } from 'antd';
 import {
   SearchOutlined, DeleteOutlined, StarFilled, AppstoreOutlined,
-  UnorderedListOutlined, ArrowLeftOutlined, ExportOutlined,
+  UnorderedListOutlined, ExportOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
 import type { PokemonDto } from '../api/saveFile';
 import { saveFileApi, type SaveFileInfo, type SaveFileDetail } from '../api/saveFile';
 import { bankApi, type BankListItem } from '../api/bank';
 import { useResourceStore } from '../stores/resourceStore';
 import BankEditDrawer from '../components/bank/BankEditDrawer';
 import PokemonSprite from '../components/PokemonSprite';
+import { getStoredSpriteStyle, type SpriteStyle } from '../lib/spriteUrl';
+import PageContainer from '../components/PageContainer';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const GENERATION_OPTIONS = [
   { value: 3, label: 'Gen3 (GBA)' },
@@ -36,12 +37,12 @@ const SORT_OPTIONS = [
 ];
 
 const BankPage: React.FC = () => {
-  const navigate = useNavigate();
   const [pokemon, setPokemon] = useState<BankListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const [spriteStyle, setSpriteStyle] = useState<SpriteStyle>(getStoredSpriteStyle);
 
   // Filters
   const [generation, setGeneration] = useState<number | undefined>();
@@ -265,8 +266,8 @@ const BankPage: React.FC = () => {
           <PokemonSprite
             speciesId={p.species}
             alt={p.speciesName}
+            variant={spriteStyle}
             width={80} height={80}
-            style={{ imageRendering: 'pixelated' as React.CSSProperties['imageRendering'] }}
           />
           {/* Alpha badge — top-left */}
           {p.isAlpha && (
@@ -343,8 +344,8 @@ const BankPage: React.FC = () => {
                 <PokemonSprite
                   speciesId={p.species}
                   alt={p.speciesName}
+                  variant={spriteStyle}
                   width={48} height={48}
-                  style={{ imageRendering: 'pixelated' as React.CSSProperties['imageRendering'] }}
                 />
                 {p.isAlpha && (
                   <span style={{
@@ -409,14 +410,25 @@ const BankPage: React.FC = () => {
   // ── Main render ──────────────────────────────────────
 
   return (
-    <div style={{ padding: 32, maxWidth: 1200, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Space>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/dashboard')}>返回</Button>
-          <Title level={2} style={{ margin: 0 }}>🏦 我的宝可梦银行</Title>
-        </Space>
-        <Space>
+    <PageContainer
+      title="我的宝可梦银行"
+      backTo="/dashboard"
+      maxWidth={1200}
+      extra={
+        <Space size={12}>
+          <Segmented
+            size="small"
+            options={[
+              { value: 'game' as SpriteStyle, label: '🎮 Game' },
+              { value: 'home' as SpriteStyle, label: '🏠 Home' },
+            ]}
+            value={spriteStyle}
+            onChange={(v) => {
+              const style = v as SpriteStyle;
+              setSpriteStyle(style);
+              localStorage.setItem('pkmanager_sprite_style', style);
+            }}
+          />
           <Button
             icon={<AppstoreOutlined />}
             type={viewMode === 'grid' ? 'primary' : 'default'}
@@ -428,7 +440,8 @@ const BankPage: React.FC = () => {
             onClick={() => setViewMode('list')}
           />
         </Space>
-      </div>
+      }
+    >
 
       {/* Filter Bar */}
       <Card size="small" style={{ marginBottom: 16 }}>
@@ -632,7 +645,7 @@ const BankPage: React.FC = () => {
           </Text>
         </div>
       </Modal>
-    </div>
+    </PageContainer>
   );
 };
 

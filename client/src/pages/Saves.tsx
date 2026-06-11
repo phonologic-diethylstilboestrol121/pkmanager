@@ -2,15 +2,16 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   Typography, Table, Button, Upload, Popconfirm, App, Tag, Space, Card,
 } from 'antd';
-import { UploadOutlined, DeleteOutlined, EyeOutlined, FileAddOutlined, ArrowLeftOutlined, PlayCircleOutlined, DesktopOutlined, SettingOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, EyeOutlined, FileAddOutlined, PlayCircleOutlined, DesktopOutlined, SettingOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
 import { saveFileApi, emulatorApi, type SaveFileInfo, type LaunchLocalResult } from '../api/saveFile';
 import { GAME_VERSION_DISPLAY, GENERATION_MAP } from '../constants/games';
 import GameCover from '../components/GameCover';
+import PageContainer from '../components/PageContainer';
 import { launchLocalSave } from '../lib/localLaunch';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const SavesPage: React.FC = () => {
   const [saves, setSaves] = useState<SaveFileInfo[]>([]);
@@ -798,28 +799,26 @@ read -r
   ];
 
   return (
-    <div style={{ padding: 32, maxWidth: 1200, margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Space>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/dashboard')}>返回</Button>
-          <Title level={2} style={{ margin: 0 }}>存档管理</Title>
-          <Button icon={<SettingOutlined />} onClick={() => navigate('/settings')}
-            style={{ marginLeft: 16 }}>模拟器设置</Button>
+    <PageContainer
+      title="存档管理"
+      backTo="/dashboard"
+      maxWidth={1200}
+      extra={
+        <Space size={12} align="center">
+          <Button icon={<SettingOutlined />} onClick={() => navigate('/settings')}>模拟器设置</Button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <Upload showUploadList={false} beforeUpload={handleUpload}>
+              <Button type="primary" icon={<UploadOutlined />} loading={uploading} size="large">
+                上传存档
+              </Button>
+            </Upload>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              支持 `.sav/.dat/.dsv/.gci`，以及 3DS 无扩展名 `main`
+            </Text>
+          </div>
         </Space>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <Upload
-            showUploadList={false}
-            beforeUpload={handleUpload}
-          >
-            <Button type="primary" icon={<UploadOutlined />} loading={uploading} size="large">
-              上传存档
-            </Button>
-          </Upload>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            支持 `.sav/.dat/.dsv/.gci`，以及 3DS 无扩展名 `main`
-          </Text>
-        </div>
-      </div>
+      }
+    >
 
       <Card>
         <Table
@@ -841,7 +840,7 @@ read -r
           }}
         />
       </Card>
-    </div>
+    </PageContainer>
   );
 };
 

@@ -2,13 +2,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Typography, Button, App, Spin, Tag, Tooltip, Space, Popconfirm, Dropdown, Select,
-  Tabs,
+  Tabs, Segmented,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   SaveOutlined, DownloadOutlined, ArrowLeftOutlined, BankOutlined,
   SafetyCertificateOutlined, AppstoreOutlined, LeftOutlined, RightOutlined,
-  StarFilled, SortAscendingOutlined,
+  StarFilled, SortAscendingOutlined, SunOutlined, MoonOutlined, DesktopOutlined,
 } from '@ant-design/icons';
 import {
   DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors,
@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/core';
 import { saveFileApi, type SaveFileDetail, type BoxSlotDto, type PokemonDto, type SaveBackupDto, type LegalityStatus, type SaveBoxSortBy } from '../api/saveFile';
 import { useDiagnosticStore } from '../stores/diagnosticStore';
+import { useTheme, type ThemeMode } from '../components/ThemeProvider';
 import { bankApi, type BankListItem } from '../api/bank';
 import EditPanel from '../components/editor/EditPanel';
 import BagPanel from '../components/editor/BagPanel';
@@ -26,6 +27,7 @@ import AllBoxesModal from '../components/AllBoxesModal';
 import { useAuthStore } from '../stores/authStore';
 import GameCover from '../components/GameCover';
 import PokemonSprite from '../components/PokemonSprite';
+import { getStoredSpriteStyle, type SpriteStyle } from '../lib/spriteUrl';
 
 const { Title, Text } = Typography;
 
@@ -68,7 +70,8 @@ const getDownloadFileName = (contentDisposition?: string, fallback = 'save.sav')
 const DraggableSlot: React.FC<{
   boxIndex: number; slot: BoxSlotDto; onPokemonClick?: (p: PokemonDto) => void;
   legalityStatus?: LegalityStatus;
-}> = ({ boxIndex, slot, onPokemonClick, legalityStatus }) => {
+  spriteStyle?: SpriteStyle;
+}> = ({ boxIndex, slot, onPokemonClick, legalityStatus, spriteStyle }) => {
   const slotId = saveSlotId(boxIndex, slot.slotIndex);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: slotId, disabled: slot.isEmpty });
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: slotId });
@@ -107,7 +110,7 @@ const DraggableSlot: React.FC<{
         <>
           <div style={{ position: 'relative' }}>
             <PokemonSprite speciesId={p!.species} width={32} height={32}
-              style={{ imageRendering: 'pixelated' as React.CSSProperties['imageRendering'] }}
+              variant={spriteStyle}
             />
             {/* Alpha badge — top-left */}
             {p!.isAlpha && (
@@ -158,7 +161,7 @@ const DraggableSlot: React.FC<{
 };
 
 // ── Draggable Bank Item ──────────────────────────────
-const DraggableBankItem: React.FC<{ pokemon: BankListItem }> = ({ pokemon }) => {
+const DraggableBankItem: React.FC<{ pokemon: BankListItem; spriteStyle?: SpriteStyle }> = ({ pokemon, spriteStyle }) => {
   const id = bankItemId(pokemon.id);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
 
@@ -174,7 +177,7 @@ const DraggableBankItem: React.FC<{ pokemon: BankListItem }> = ({ pokemon }) => 
       }}
     >
       <PokemonSprite speciesId={pokemon.species} width={40} height={40}
-        style={{ imageRendering: 'pixelated' as React.CSSProperties['imageRendering'] }}
+        variant={spriteStyle}
       />
       <div style={{ fontSize: 10, lineHeight: 1.2 }}>{pokemon.nickname || pokemon.speciesName}</div>
       <Tag color="blue" style={{ fontSize: 9, margin: 0, padding: '0 4px', lineHeight: '16px' }}>Lv.{pokemon.level}</Tag>
@@ -207,6 +210,8 @@ const SaveEditor: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
+  const [spriteStyle, setSpriteStyle] = useState<SpriteStyle>(getStoredSpriteStyle);
 
   const [saveData, setSaveData] = useState<SaveFileDetail | null>(null);
   const [activeBox, setActiveBox] = useState(0);
@@ -434,9 +439,9 @@ const SaveEditor: React.FC = () => {
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg-body, #f5f5f5)' }}>
         {/* Toolbar */}
-        <div style={{ background: '#fff', padding: '8px 24px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid #e8e8e8' }}>
+        <div style={{ background: 'var(--bg-toolbar, #fff)', padding: '8px 24px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border-color, #e8e8e8)' }}>
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/saves')}>返回</Button>
           <Title level={5} style={{ margin: 0, flex: 1 }}>
             {saveData.filename}
@@ -451,10 +456,33 @@ const SaveEditor: React.FC = () => {
             <Tooltip title="手动创建备份"><Button icon={<SaveOutlined />} onClick={handleSave}>备份</Button></Tooltip>
             <Tooltip title="导出下载"><Button icon={<DownloadOutlined />} onClick={handleDownload}>导出</Button></Tooltip>
           </Space>
+          <Segmented
+            size="small"
+            options={[
+              { value: 'light' as ThemeMode, icon: <SunOutlined /> },
+              { value: 'dark' as ThemeMode, icon: <MoonOutlined /> },
+              { value: 'system' as ThemeMode, icon: <DesktopOutlined /> },
+            ]}
+            value={themeMode}
+            onChange={(v) => setThemeMode(v as ThemeMode)}
+          />
+          <Segmented
+            size="small"
+            options={[
+              { value: 'game' as SpriteStyle, label: '🎮 Game' },
+              { value: 'home' as SpriteStyle, label: '🏠 Home' },
+            ]}
+            value={spriteStyle}
+            onChange={(v) => {
+              const style = v as SpriteStyle;
+              setSpriteStyle(style);
+              localStorage.setItem('pkmanager_sprite_style', style);
+            }}
+          />
         </div>
 
         {/* Tab navigation — archive-level features */}
-        <div style={{ background: '#fff', padding: '0 24px', borderBottom: '1px solid #e8e8e8' }}>
+        <div style={{ background: 'var(--bg-toolbar, #fff)', padding: '0 24px', borderBottom: '1px solid var(--border-color, #e8e8e8)' }}>
           <Tabs
             activeKey={activeTab}
             onChange={setActiveTab}
@@ -473,8 +501,8 @@ const SaveEditor: React.FC = () => {
         <div style={{ padding: 12 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-            background: '#fff', borderRadius: 8, padding: '10px 12px',
-            border: '1px solid #e8e8e8', marginBottom: 12,
+            background: 'var(--bg-surface, #fff)', borderRadius: 8, padding: '10px 12px',
+            border: '1px solid var(--border-color, #e8e8e8)', marginBottom: 12,
           }}>
             <Text strong>箱子工具</Text>
             <Select size="small" value={activeBox} style={{ width: 240, maxWidth: '100%' }}
@@ -499,11 +527,11 @@ const SaveEditor: React.FC = () => {
             </Dropdown>
           </div>
 
-          <div style={{ display: 'flex', gap: 12 }}>
-            {/* Box List Sidebar — height matches box grid */}
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto' }}>
+            {/* Box List Sidebar — height matches box grid; collapses on narrow screens */}
             <div style={{
-              width: 150, background: '#fff', borderRadius: 8, padding: '8px 12px', flexShrink: 0,
-              border: '1px solid #e8e8e8', alignSelf: 'flex-start',
+              minWidth: 130, maxWidth: 150, flex: '0 1 150px', background: 'var(--bg-surface, #fff)', borderRadius: 8, padding: '8px 12px', flexShrink: 0,
+              border: '1px solid var(--border-color, #e8e8e8)', alignSelf: 'flex-start',
               display: 'flex', flexDirection: 'column',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexShrink: 0 }}>
@@ -539,7 +567,7 @@ const SaveEditor: React.FC = () => {
             </div>
 
             {/* Box Grid */}
-            <div style={{ flex: 1, alignSelf: 'flex-start', background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e8e8e8' }}>
+            <div style={{ flex: 1, alignSelf: 'flex-start', background: 'var(--bg-surface, #fff)', borderRadius: 8, padding: 16, border: '1px solid var(--border-color, #e8e8e8)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
                 <Text strong>{currentBox?.boxName || `Box ${activeBox + 1}`}</Text>
                 <Tooltip title="只对当前箱子内部排序，空槽位会排到末尾">
@@ -549,12 +577,13 @@ const SaveEditor: React.FC = () => {
                 </Tooltip>
               </div>
               {currentBox && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, maxWidth: 600 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 'clamp(3px, 1vw, 8px)', maxWidth: 'clamp(300px, 100%, 600px)', overflowX: 'auto' }}>
                   {currentBox.slots.map(slot => {
                     const slotKey = `box-${activeBox}-${slot.slotIndex}`;
                     return (
                       <DraggableSlot key={slot.slotIndex} boxIndex={activeBox} slot={slot}
                         legalityStatus={legalityMap[slotKey]}
+                        spriteStyle={spriteStyle}
                         onPokemonClick={(p) => { setEditingPokemon(p); setEditingBoxIndex(activeBox); setEditingSlotIndex(slot.slotIndex); setEditingIsParty(false); setEditPanelOpen(true); }} />
                     );
                   })}
@@ -565,7 +594,7 @@ const SaveEditor: React.FC = () => {
 
           {/* Party Pokémon (随行宝可梦) */}
           {saveData.party && saveData.party.length > 0 && (
-            <div style={{ marginTop: 12, background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e8e8e8' }}>
+            <div style={{ marginTop: 12, background: 'var(--bg-surface, #fff)', borderRadius: 8, padding: 16, border: '1px solid var(--border-color, #e8e8e8)' }}>
               <Text strong style={{ marginBottom: 8, display: 'block' }}>🎒 随行宝可梦</Text>
               <div style={{ display: 'flex', gap: 8, maxWidth: 600 }}>
                 {saveData.party.map((slot: BoxSlotDto) => (
@@ -585,7 +614,7 @@ const SaveEditor: React.FC = () => {
                         alignItems: 'center', justifyContent: 'center', background: '#fff', maxWidth: 80,
                       }} onClick={() => { if (slot.pokemon) { setEditingPokemon(slot.pokemon); setEditingBoxIndex(-1); setEditingSlotIndex(slot.slotIndex); setEditingIsParty(true); setEditPanelOpen(true); } }}>
                         <PokemonSprite speciesId={slot.pokemon!.species} width={32} height={32}
-                          style={{ imageRendering: 'pixelated' as React.CSSProperties['imageRendering'] }}
+                          variant={spriteStyle}
                         />
                         <div style={{ fontSize: 10, lineHeight: 1.2, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                           {slot.pokemon!.nickname || slot.pokemon!.speciesName}
@@ -600,13 +629,13 @@ const SaveEditor: React.FC = () => {
           )}
 
           {/* Bank Panel */}
-          <div style={{ marginTop: 12, background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e8e8e8', minHeight: 120 }}>
+          <div style={{ marginTop: 12, background: 'var(--bg-surface, #fff)', borderRadius: 8, padding: 16, border: '1px solid var(--border-color, #e8e8e8)', minHeight: 120 }}>
             <Text strong style={{ marginBottom: 8, display: 'block' }}><BankOutlined /> 我的银行</Text>
             <DroppableBankZone>
               {bankPokemon.length === 0 ? (
                 <Text type="secondary" style={{ padding: 16 }}>拖拽宝可梦到这里存入银行</Text>
               ) : (
-                bankPokemon.map(p => <DraggableBankItem key={p.id} pokemon={p} />)
+                bankPokemon.map(p => <DraggableBankItem key={p.id} pokemon={p} spriteStyle={spriteStyle} />)
               )}
             </DroppableBankZone>
           </div>
@@ -617,19 +646,19 @@ const SaveEditor: React.FC = () => {
         )}
 
         {activeTab === 'bag' && (
-          <div style={{ padding: 12, background: '#fff', borderRadius: 8, margin: 12, border: '1px solid #e8e8e8' }}>
+          <div style={{ padding: 12, background: 'var(--bg-surface, #fff)', borderRadius: 8, margin: 12, border: '1px solid var(--border-color, #e8e8e8)' }}>
             <BagPanel saveFileId={id!} />
           </div>
         )}
 
         {activeTab === 'trainer' && (
-          <div style={{ padding: 12, background: '#fff', borderRadius: 8, margin: 12, border: '1px solid #e8e8e8' }}>
+          <div style={{ padding: 12, background: 'var(--bg-surface, #fff)', borderRadius: 8, margin: 12, border: '1px solid var(--border-color, #e8e8e8)' }}>
             <TrainerPanel saveFileId={id!} />
           </div>
         )}
 
         {activeTab === 'pokedex' && (
-          <div style={{ background: '#fff', borderRadius: 8, margin: 12, border: '1px solid #e8e8e8', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--bg-surface, #fff)', borderRadius: 8, margin: 12, border: '1px solid var(--border-color, #e8e8e8)', overflow: 'hidden' }}>
             <PokedexPanel saveFileId={id!} />
           </div>
         )}
@@ -664,6 +693,7 @@ const SaveEditor: React.FC = () => {
         saveFileId={id!}
         onSelectBox={(boxIdx) => setActiveBox(boxIdx)}
         onSwapped={fetchData}
+        spriteStyle={spriteStyle}
       />
     </DndContext>
   );
@@ -702,7 +732,7 @@ const BackupSection: React.FC<{ saveFileId: string }> = ({ saveFileId }) => {
   if (backups.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 12, background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e8e8e8' }}>
+    <div style={{ marginTop: 12, background: 'var(--bg-surface, #fff)', borderRadius: 8, padding: 16, border: '1px solid var(--border-color, #e8e8e8)' }}>
       <Text strong style={{ marginBottom: 10, display: 'block' }}>💾 存档备份 (最近5次)</Text>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {backups.map((b, i) => (

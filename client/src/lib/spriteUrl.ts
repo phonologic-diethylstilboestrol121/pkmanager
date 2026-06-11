@@ -17,3 +17,25 @@ export function getPokeApiSpriteUrl(speciesId: number): string {
 export function getPokeApiArtworkUrl(speciesId: number): string {
   return `https://gcore.jsdelivr.net/gh/PokeAPI/sprites@master/sprites/pokemon/other/official-artwork/${speciesId}.png`;
 }
+
+/** 远端 Home 渲染图 URL（256×256, 3D 正面, jsdelivr CDN） */
+export function getHomeSpriteUrl(speciesId: number): string {
+  return `https://gcore.jsdelivr.net/gh/PokeAPI/sprites@master/sprites/pokemon/other/home/${speciesId}.png`;
+}
+
+/** 精灵图风格 */
+export type SpriteStyle = 'game' | 'home';
+
+/** 按风格获取精灵图 URL（本地 Game 图 / 远端 Home 图） */
+export function getSpriteUrl(speciesId: number, style: SpriteStyle): string {
+  return style === 'home' ? getHomeSpriteUrl(speciesId) : getPokemonSpriteUrl(speciesId);
+}
+
+/** 从 localStorage 读取用户精灵图风格偏好 */
+export function getStoredSpriteStyle(): SpriteStyle {
+  try {
+    const stored = localStorage.getItem('pkmanager_sprite_style');
+    if (stored === 'home') return 'home';
+  } catch { /* ignore */ }
+  return 'game';
+}

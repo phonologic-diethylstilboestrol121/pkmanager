@@ -33,7 +33,7 @@ const LoginPage: React.FC = () => {
       alignItems: 'center',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     }}>
-      <Card style={{ width: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+      <Card style={{ maxWidth: 400, width: '90%', margin: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
         <Title level={3} style={{ textAlign: 'center', marginBottom: 32 }}>
           宝可梦管理平台
         </Title>

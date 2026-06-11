@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ConfigProvider, App as AntdApp } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
+import { ThemeProvider } from './components/ThemeProvider';
 
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
@@ -95,8 +94,7 @@ const HealthChecker: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
 const App: React.FC = () => {
   return (
-    <ConfigProvider locale={zhCN}>
-      <AntdApp>
+    <ThemeProvider>
         <ErrorBoundary name="app-root">
           <HealthChecker>
             <BrowserRouter>
@@ -191,8 +189,7 @@ const App: React.FC = () => {
 
         {/* Diagnostic panel — outside router so accessible on all pages */}
         <DiagnosticPanel />
-      </AntdApp>
-    </ConfigProvider>
+    </ThemeProvider>
   );
 };
 
