@@ -23,14 +23,15 @@ public class EmulatorController : ControllerBase
     private readonly ParseService _parseService;
     private readonly UserContext _userContext;
     private readonly LegalityCacheService _legalityCache;
-    private readonly string _baseSaveDir;
+    private readonly string _romDir;
 
     private readonly SettingsService _settingsService;
 
-    public EmulatorController(NpgsqlConnection db, SaveFileService saveFileService, ParseService parseService, UserContext userContext, IWebHostEnvironment env, SettingsService settingsService, LegalityCacheService legalityCache)
+    public EmulatorController(NpgsqlConnection db, SaveFileService saveFileService, ParseService parseService, UserContext userContext, IWebHostEnvironment env, IConfiguration config, SettingsService settingsService, LegalityCacheService legalityCache)
     {
         _db = db; _saveFileService = saveFileService; _parseService = parseService; _userContext = userContext;
-        _baseSaveDir = Path.Combine(env.ContentRootPath, "data", "saves");
+        var romDirConfig = config["RomImport:Directory"] ?? Path.Combine("..", "..", "roms");
+        _romDir = Path.GetFullPath(Path.Combine(env.ContentRootPath, romDirConfig));
         _settingsService = settingsService;
         _legalityCache = legalityCache;
     }
@@ -69,8 +70,7 @@ public class EmulatorController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> ImportLocal()
     {
         if (_userContext.UserId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
-        var romDir = "/home/fmangela/pkmanager/roms";
-        if (!Directory.Exists(romDir)) return BadRequest(ApiResponse<object>.Error(400, "ROM目录不存在"));
+        if (!Directory.Exists(_romDir)) return BadRequest(ApiResponse<object>.Error(400, $"ROM目录不存在: {_romDir}"));
 
         var romMap = new Dictionary<string, (string gameId, string displayName, int generation)>(StringComparer.OrdinalIgnoreCase) {
             // GBA (Gen3)
@@ -90,7 +90,7 @@ public class EmulatorController : ControllerBase
 
         // 全部 ROM 统一走文件系统路径（GBA .gba + NDS .nds）
         foreach (var ext in new[] { "*.gba", "*.nds" }) {
-        foreach (var file in Directory.GetFiles(romDir, ext)) {
+        foreach (var file in Directory.GetFiles(_romDir, ext)) {
             var name = Path.GetFileNameWithoutExtension(file);
             var match = romMap.FirstOrDefault(kv => name.Contains(kv.Key));
             if (match.Key == null) continue;
@@ -165,22 +165,14 @@ public class EmulatorController : ControllerBase
         if (saveFile == null) return NotFound();
 
         // 写入前自动备份（当前存档有数据时才备份）
-        var currentData = ReadSaveBytesSafe(saveFile);
+        var currentData = _saveFileService.ReadSaveBytes(saveFile, userId.Value);
         if (currentData is { Length: > 0 })
         {
             await _saveFileService.CreateBackup(saveFileId, userId.Value, "同步前自动备份");
         }
 
-        // 写入文件系统
-        var savePath = saveFile.SavePath;
-        if (string.IsNullOrEmpty(savePath))
-        {
-            savePath = Path.Combine(_baseSaveDir, userId.Value.ToString(), saveFileId.ToString(), "save.sav");
-            Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
-            await _db.ExecuteAsync("UPDATE save_files SET save_path=@P WHERE id=@Id",
-                new { P = savePath, Id = saveFileId });
-        }
-        await System.IO.File.WriteAllBytesAsync(savePath, data);
+        // 写入文件系统（规范路径，自动修复 DB save_path）
+        await _saveFileService.WriteSaveBytes(saveFile, userId.Value, data);
 
         // 解析存档更新元数据
         string? trainerName = null;
@@ -272,22 +264,14 @@ public class EmulatorController : ControllerBase
         if (data.Length == 0) return BadRequest(ApiResponse<object>.Error(400, "存档数据为空"));
 
         // 写入前自动备份
-        var currentData = ReadSaveBytesSafe(saveFile);
+        var currentData = _saveFileService.ReadSaveBytes(saveFile, userId.Value);
         if (currentData is { Length: > 0 })
         {
             await _saveFileService.CreateBackup(saveFileId, userId.Value, "同步前自动备份");
         }
 
-        // 写入文件系统
-        var savePath = saveFile.SavePath;
-        if (string.IsNullOrEmpty(savePath))
-        {
-            savePath = Path.Combine(_baseSaveDir, userId.Value.ToString(), saveFileId.ToString(), "save.sav");
-            Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
-            await _db.ExecuteAsync("UPDATE save_files SET save_path=@P WHERE id=@Id",
-                new { P = savePath, Id = saveFileId });
-        }
-        await System.IO.File.WriteAllBytesAsync(savePath, data);
+        // 写入文件系统（规范路径，自动修复 DB save_path）
+        await _saveFileService.WriteSaveBytes(saveFile, userId.Value, data);
 
         // 解析存档更新元数据
         try
@@ -364,15 +348,8 @@ public class EmulatorController : ControllerBase
             new { Id = saveFileId, Uid = userId.Value });
         if (saveFile == null) return NotFound();
 
-        var savePath = saveFile.SavePath;
-        if (string.IsNullOrEmpty(savePath))
-        {
-            savePath = Path.Combine(_baseSaveDir, userId.Value.ToString(), saveFileId.ToString(), "save.sav");
-            Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
-            await _db.ExecuteAsync("UPDATE save_files SET save_path=@P WHERE id=@Id",
-                new { P = savePath, Id = saveFileId });
-        }
-        await System.IO.File.WriteAllBytesAsync(savePath, data);
+        // 写入文件系统（规范路径，自动修复 DB save_path）
+        await _saveFileService.WriteSaveBytes(saveFile, userId.Value, data);
 
         string? trainerName = null;
         int? pokemonCount = null;
@@ -406,16 +383,6 @@ public class EmulatorController : ControllerBase
         _legalityCache.InvalidateSave(saveFileId);
 
         return Ok(ApiResponse<object>.Ok(new { saveFileId, trainerName, pokemonCount }, "存档已同步"));
-    }
-
-    /// <summary>读取当前存档二进制（仅检查是否存在，供同步流程使用）</summary>
-    private static byte[]? ReadSaveBytesSafe(Models.Entity.SaveFile entity)
-    {
-        if (!string.IsNullOrEmpty(entity.SavePath) && System.IO.File.Exists(entity.SavePath))
-            return System.IO.File.ReadAllBytes(entity.SavePath);
-        if (entity.RawSaveData is { Length: > 0 })
-            return entity.RawSaveData;
-        return null;
     }
 
     /// <summary>保存即时存档状态</summary>
@@ -524,11 +491,10 @@ public class EmulatorController : ControllerBase
         var emuSettings = await _settingsService.GetEmulatorSettings(userId.Value, deviceId);
 
         // 读取 pkmanager 存档二进制
-        var pkSavePath = Path.Combine(_baseSaveDir, userId.ToString()!, saveFileId.ToString(), "save.sav");
-        if (!System.IO.File.Exists(pkSavePath))
+        var saveData = _saveFileService.ReadSaveBytes(save, userId.Value);
+        if (saveData.Length == 0)
             return BadRequest(ApiResponse<object>.Error(400, "存档文件不存在"));
 
-        var saveData = await System.IO.File.ReadAllBytesAsync(pkSavePath);
         var saveDataBase64 = Convert.ToBase64String(saveData);
         var syncToken = CreateSyncToken(saveFileId, userId.Value);
 
@@ -625,11 +591,10 @@ public class EmulatorController : ControllerBase
         var deviceId = GetDeviceId();
         var emuSettings = await _settingsService.GetEmulatorSettings(userId.Value, deviceId);
 
-        var pkSavePath = Path.Combine(_baseSaveDir, userId.ToString()!, saveFileId.ToString(), "save.sav");
-        if (!System.IO.File.Exists(pkSavePath))
+        var saveData = _saveFileService.ReadSaveBytes(save, userId.Value);
+        if (saveData.Length == 0)
             return BadRequest(ApiResponse<object>.Error(400, "存档文件不存在"));
 
-        var saveData = await System.IO.File.ReadAllBytesAsync(pkSavePath);
         var saveDataBase64 = Convert.ToBase64String(saveData);
         var syncToken = CreateSyncToken(saveFileId, userId.Value);
 
@@ -782,15 +747,14 @@ public class EmulatorController : ControllerBase
         if (!System.IO.File.Exists(emuSavePath))
             return NotFound(ApiResponse<object>.Error(404, "模拟器存档文件不存在，请先在游戏中保存"));
 
-        // Read back
-        var pkSavePath = Path.Combine(_baseSaveDir, userId.ToString()!, saveFileId.ToString(), "save.sav");
+        // Read back and write to pkmanager canonical path
         var data = await System.IO.File.ReadAllBytesAsync(emuSavePath);
-        await System.IO.File.WriteAllBytesAsync(pkSavePath, data);
+        await _saveFileService.WriteSaveBytes(save, userId.Value, data);
 
-        // Update DB
+        // Update raw_save_data for backward compatibility
         await _db.ExecuteAsync(
-            "UPDATE save_files SET raw_save_data=@Data, file_size=@Size, is_modified=TRUE, updated_at=NOW() WHERE id=@Id",
-            new { Data = data, Size = data.Length, Id = saveFileId });
+            "UPDATE save_files SET raw_save_data=@Data WHERE id=@Id",
+            new { Data = data, Id = saveFileId });
 
         // Create backup (after sync)
         await _saveFileService.CreateBackup(saveFileId, userId.Value, "从本地模拟器同步");

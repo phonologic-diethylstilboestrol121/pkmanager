@@ -5,7 +5,7 @@
 > **原则**: 项目主体架构不变 (React 19 + ASP.NET Core 10 + PostgreSQL 14)，在界面外观和编辑功能上做优化补齐  
 > **范围限定**: 聚焦 **3DS 及以下世代**（Gen1-7, GBA/NDS/3DS）。Switch (Gen8-9) 游戏处于任天堂官方网络服务期，不做主动开发 — GAME_META/Switch 元数据仅用于存档展示识别，不在 Dashboard 开放工作台入口，Switch 专属功能（编辑/图鉴/模拟器）不是当前优先级。  
 > **2026-06-09**: 后端升级 .NET 8→10 + PKHeX.Core v24.3.10 NuGet→v26.05.05 SDK 源码编译（本地 NuGet 包），详见 `docs/PKHeX-NET10-升级方案.md`。破坏性 API 变更：`GetVariantSAV`→`GetSaveFile`、`DecryptedPartyData`→`WriteDecryptedDataParty`、`CheckResult.Comment` 已移除、Coin 命名/类型变更。Swagger JWT 定义因 OpenApi v2.x API 变更暂时注释。
-> **当前基线**: 已有用户登录/注册、存档上传/解析/存储、箱子网格展示(6列)、dnd-kit拖拽、银行面板、7Tab编辑面板、三态合法性校验（Legal/Fishy/Illegal）、背包编辑（BagPanel）、训练家编辑（TrainerPanel）、图鉴编辑 V1（PokedexPanel — seen/caught 基础读写 + seenAll/caughtAll/clearAll 批量）、存档编辑器 Tabs 导航（📦箱子/🎒背包/👤训练家/📖图鉴）
+> **当前基线**: 已有用户登录/注册、存档上传/解析/存储、箱子网格展示(6列)、dnd-kit拖拽、银行面板、7Tab编辑面板、三态合法性校验（Legal/Fishy/Illegal）、背包编辑（BagPanel）、训练家编辑（TrainerPanel）、图鉴编辑 V1（PokedexPanel — seen/caught 基础读写 + seenAll/caughtAll/clearAll 批量）、存档编辑器 Tabs 导航（📦箱子/🎒背包/👤训练家/📖图鉴）、**路径全面规范化（零硬编码绝对路径，ContentRootPath 派生 + 启动迁移 + SaveFileService 唯一权威）**
 
 ---
 
@@ -1064,24 +1064,31 @@
 > **原则**: 不改架构、不改核心绑定（PKHeX/mGBA/melonDS/Azahar/DeSmuME），仅做配置外部化 + i18n 基础设施。
 > **详细分析**: 见 `docs/解耦分析报告-GitHub发布准备.md`
 
-### K.1 硬编码绝对路径消除（🔴 必须 — 否则项目不可运行）
+### K.1 硬编码绝对路径消除（🔴 必须 — 否则项目不可运行）✅ 已完成 (2026-06-11)
 
-- [ ] **连接字符串外部化**
-  - `appsettings.json` → 移除硬编码 PostgreSQL Unix socket 路径，改为 `localhost` + 端口 + 环境变量回退
-  - `Program.cs` → 优先读 `PKM_CONNECTION_STRING` 环境变量
-  - 新建 `appsettings.template.json` 提交到 git 供开发者参考
+- [x] **连接字符串外部化**
+  - `appsettings.json` → `Host={PGDATA}/run` 占位符，`Program.cs` 启动时通过 `Path.GetFullPath(builder.Environment.ContentRootPath + ../../data/pgdata)` 组装为绝对 socket 路径
+  - 详见 `CLAUDE.md` 路径规范章节
 
-- [ ] **证书路径外部化**
-  - `Program.cs` PFX 路径 → `PKM_CERT_PATH` 环境变量 + 相对项目根路径回退
-  - `vite.config.ts` cert/key 路径 → 环境变量 + 相对路径
-  - 开发环境不强制 HTTPS（未配置证书时仅监听 HTTP）
+- [x] **证书路径外部化**
+  - `Program.cs` PFX 路径 → `Path.Combine(builder.Environment.ContentRootPath, "..", "cert.pfx")`
+  - `vite.config.ts` cert/key → `fs.readFileSync(path.resolve(__dirname, '../server/cert.{key,crt}'))`（Vite 8 要求 PEM 内容字符串）
 
-- [ ] **ROM 目录硬编码修复**
-  - `EmulatorController.cs:70` `romDir = "/home/fmangela/pkmanager/roms"` → `PKM_ROM_DIR` 环境变量 + 相对路径 `./roms/`
-  - `ImportLocal()` ROM 名称映射 → 外部 `roms/rom-mapping.json` 配置文件
+- [x] **ROM 目录硬编码修复**
+  - `EmulatorController.cs` → `appsettings.json` 中 `RomImport:Directory` 配置项（默认 `../../roms`），`Path.GetFullPath(ContentRootPath + config)` 解析
 
-- [ ] **后端 API 基础 URL 检测增强**
-  - `localLaunch.ts` 仅支持 `:5173` 端口 → 改为更通用的 Vite dev 检测机制
+- [x] **日志 / 异常中间件 ContentRootPath 修复**
+  - `ExceptionLoggingMiddleware.cs` + `DiagnosticsController.cs` → `config["ContentRootPath"]`（不存在的 key）→ `IWebHostEnvironment.ContentRootPath`
+
+- [x] **Shell 脚本解耦**
+  - `start-dev.sh` → `pg_ctl` 按 `$PGDATA/PG_VERSION` 匹配标准路径 → 14 回退 → `command -v` 兜底
+  - `check-health.sh` → `$HOME/pkmanager/...` 回退值 → `$(dirname "$0")` 自定位
+
+- [x] **存档路径规范化 + 迁移**
+  - `SaveFileService` 成为存档 I/O 唯一权威 — `ReadSaveBytes(entity, userId)` / `WriteSaveBytes(entity, userId, data)`，规范路径优先
+  - `PokemonController` / `EmulatorController` 全部收口到 `SaveFileService`
+  - 启动时 `MigrateSavePaths()` 一次性将 DB 中过期绝对路径重写为当前规范路径
+  - 删除逻辑 canonical/legacy 双路径清理
 
 ### K.2 配置文件体系重构
 
@@ -1583,3 +1590,21 @@ Week 19-20: Phase I.4 存档联动（同步回传 + 冲突处理）
 > - TypeScript 0 错误 + .NET Build 0 错误 + Vite 构建通过
 > - Phase F: 8/6 (+2)
 > - 合计: 199/150 (+2)
+
+> **更新 (2026-06-11) — Phase K.1 硬编码绝对路径消除 完结**：
+>
+> ### K.1 路径全面规范化 — 完结 🎉
+>
+> - ✅ 所有运行时代码中 `/home/fmangela` 硬编码已清零（10 个文件改动）
+> - ✅ `SaveFileService` 成为存档 I/O 唯一权威 — `ReadSaveBytes` / `WriteSaveBytes` 规范路径优先，自动修复 DB 过期路径
+> - ✅ `PokemonController` + `EmulatorController` 全部收口到 `SaveFileService`（删除 `_baseSaveDir` + `ReadSaveBytesSafe`）
+> - ✅ 启动迁移 `MigrateSavePaths()` — 6/6 条旧绝对路径已自动规范化为 ContentRootPath 基础路径
+> - ✅ DB 连接字符串 `{PGDATA}` 占位符 → `Program.cs` 中 `Path.GetFullPath` 组装（不依赖 CWD）
+> - ✅ 证书路径 `Program.cs`（`../cert.pfx`）+ `vite.config.ts`（`fs.readFileSync(path.resolve(...))`）
+> - ✅ ROM 导入目录 `IConfiguration["RomImport:Directory"]` 配置化
+> - ✅ `ExceptionLoggingMiddleware` + `DiagnosticsController` → `IWebHostEnvironment.ContentRootPath`
+> - ✅ `start-dev.sh` `pg_ctl` 按 `PG_VERSION` 匹配 + `check-health.sh` `PROJECT_DIR` 自定位
+> - ✅ `CLAUDE.md` 新增「路径规范（强制）」章节
+> - TypeScript 0 错误 + .NET Build 0 错误 + Vite 构建通过 + check-health.sh 5/5 通过
+> - Phase K: 5/4 (+1)
+> - 合计: 204/154 (+5)

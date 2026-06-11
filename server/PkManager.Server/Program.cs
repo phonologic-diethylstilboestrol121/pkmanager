@@ -15,7 +15,8 @@ builder.WebHost.ConfigureKestrel(options =>
     options.ListenAnyIP(5000); // HTTP
     options.ListenAnyIP(5001, listenOptions =>
     {
-        listenOptions.UseHttps("/home/fmangela/pkmanager/server/cert.pfx", "pkmanager123");
+        var certPath = Path.Combine(builder.Environment.ContentRootPath, "..", "cert.pfx");
+        listenOptions.UseHttps(certPath, "pkmanager123");
     });
 });
 
@@ -24,6 +25,9 @@ Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 // ── 数据库连接 ──────────────────────────────────────────
 var connectionString = builder.Configuration.GetConnectionString("Default")!;
+// 将 {PGDATA} 占位符替换为基于 ContentRootPath 的绝对 socket 路径（不依赖 CWD）
+var pgData = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "data", "pgdata"));
+connectionString = connectionString.Replace("{PGDATA}", pgData);
 builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
 builder.Services.AddScoped<Npgsql.NpgsqlConnection>(sp =>
 {
@@ -103,6 +107,18 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// ── 一次性启动迁移：将 DB 中过期的绝对 save_path 重写为当前规范路径 ──
+try
+{
+    using var scope = app.Services.CreateScope();
+    var saveFileService = scope.ServiceProvider.GetRequiredService<SaveFileService>();
+    await saveFileService.MigrateSavePaths();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[Startup] Save path migration skipped: {ex.Message}");
+}
 
 // ── 中间件管道 ───────────────────────────────────────────
 

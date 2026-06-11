@@ -10,12 +10,10 @@ public class DiagnosticsController : ControllerBase
 {
     private readonly string _logDir;
 
-    public DiagnosticsController(IConfiguration config)
+    public DiagnosticsController(IWebHostEnvironment env)
     {
         // Store logs under ContentRoot/data/logs/
-        var contentRoot = config["ContentRootPath"]
-                          ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
-        _logDir = Path.Combine(contentRoot, "logs");
+        _logDir = Path.Combine(env.ContentRootPath, "data", "logs");
         Directory.CreateDirectory(_logDir);
     }
 

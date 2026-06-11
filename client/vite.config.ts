@@ -1,5 +1,10 @@
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   plugins: [react()],
@@ -7,8 +12,8 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     https: {
-      key: '/home/fmangela/pkmanager/server/cert.key',
-      cert: '/home/fmangela/pkmanager/server/cert.crt',
+      key: fs.readFileSync(path.resolve(__dirname, '../server/cert.key'), 'utf-8'),
+      cert: fs.readFileSync(path.resolve(__dirname, '../server/cert.crt'), 'utf-8'),
     },
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',

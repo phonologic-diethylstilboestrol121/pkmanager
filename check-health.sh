@@ -12,6 +12,8 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 PASS="${GREEN}✓ PASS${NC}"
 FAIL="${RED}✗ FAIL${NC}"
 WARN="${YELLOW}⚠ WARN${NC}"
@@ -94,7 +96,7 @@ echo ""
 echo -e "${BLUE}[4/5]${NC} 数据库连接检查..."
 # Check via backend health (which should include DB check)
 # For now, check if PostgreSQL socket exists
-PG_SOCKET="${PGDATA:-$HOME/pkmanager/data/pgdata}/run"
+PG_SOCKET="${PGDATA:-$PROJECT_DIR/data/pgdata}/run"
 if [[ -d "$PG_SOCKET" ]]; then
   echo -e "  $PASS  PostgreSQL 数据目录存在: $PG_SOCKET"
   if command -v psql &>/dev/null; then

@@ -169,17 +169,13 @@ public class PokemonController : ControllerBase
     /// </summary>
     private async Task<PKM?> PersistPartyEdit(Guid saveFileId, Guid userId, int slotIndex, PKM editedPkm)
     {
-        // 获取存档原始二进制
+        // 获取存档实体
         var saveFile = await _db.QueryFirstOrDefaultAsync<Models.Entity.SaveFile>(
             "SELECT * FROM save_files WHERE id = @Id AND user_id = @UserId",
             new { Id = saveFileId, UserId = userId });
         if (saveFile == null) return null;
 
-        byte[] rawData;
-        if (!string.IsNullOrEmpty(saveFile.SavePath) && System.IO.File.Exists(saveFile.SavePath))
-            rawData = await System.IO.File.ReadAllBytesAsync(saveFile.SavePath);
-        else
-            rawData = saveFile.RawSaveData;
+        var rawData = _saveFileService.ReadSaveBytes(saveFile, userId);
 
         PKHeX.Core.SaveFile sav;
         try
@@ -209,19 +205,7 @@ public class PokemonController : ControllerBase
             throw new BusinessException("保存后的存档无法重新解析，已中止写入");
         }
 
-        if (!string.IsNullOrEmpty(saveFile.SavePath))
-        {
-            await System.IO.File.WriteAllBytesAsync(saveFile.SavePath, updatedData);
-            await _db.ExecuteAsync(
-                "UPDATE save_files SET file_size = @Size, is_modified = TRUE, updated_at = NOW() WHERE id = @Id",
-                new { Id = saveFileId, Size = updatedData.Length });
-        }
-        else
-        {
-            await _db.ExecuteAsync(
-                "UPDATE save_files SET raw_save_data = @Data, file_size = @Size, is_modified = TRUE, updated_at = NOW() WHERE id = @Id",
-                new { Id = saveFileId, Data = updatedData, Size = updatedData.Length });
-        }
+        await _saveFileService.WriteSaveBytes(saveFile, userId, updatedData);
 
         _legalityCache.InvalidateSave(saveFileId);
 
@@ -497,12 +481,7 @@ public class PokemonController : ControllerBase
 
             if (saveFile != null)
             {
-                byte[] rawData;
-                if (!string.IsNullOrEmpty(saveFile.SavePath) && System.IO.File.Exists(saveFile.SavePath))
-                    rawData = await System.IO.File.ReadAllBytesAsync(saveFile.SavePath);
-                else
-                    rawData = saveFile.RawSaveData;
-
+                var rawData = _saveFileService.ReadSaveBytes(saveFile, userId.Value);
                 var sav = ParseService.OpenSaveFile(rawData, saveFile.Filename);
                 return new SimpleTrainerInfo(sav, targetVersion);
             }

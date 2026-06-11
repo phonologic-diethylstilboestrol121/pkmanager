@@ -19,6 +19,27 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+# ── Locate pg_ctl ─────────────────────────────────────
+# 按数据目录的 PG_VERSION 匹配标准安装路径 → 回退 14 → 最后 PATH
+PG_VERSION=$(cat "$PGDATA/PG_VERSION" 2>/dev/null || echo "14")
+PG_CTL=""
+for candidate in \
+    "/usr/lib/postgresql/${PG_VERSION}/bin/pg_ctl" \
+    "/usr/lib/postgresql/14/bin/pg_ctl" \
+    ; do
+    if [ -x "$candidate" ]; then
+        PG_CTL="$candidate"
+        break
+    fi
+done
+if [ -z "$PG_CTL" ] && command -v pg_ctl > /dev/null 2>&1; then
+    PG_CTL="pg_ctl"
+fi
+if [ -z "$PG_CTL" ]; then
+    echo -e "${RED}[ERROR]${NC} pg_ctl not found (PG version: $PG_VERSION)"
+    exit 1
+fi
+
 log()  { echo -e "${GREEN}[INFO]${NC}  $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC}  $1"; }
 err()  { echo -e "${RED}[ERROR]${NC} $1"; }
@@ -55,7 +76,7 @@ stop_all() {
 
     # 停止 PostgreSQL
     if pg_isready -h "$PGDATA/run" > /dev/null 2>&1; then
-        /usr/lib/postgresql/14/bin/pg_ctl -D "$PGDATA" stop -m fast 2>/dev/null && log "PostgreSQL 已停止" || true
+        "$PG_CTL" -D "$PGDATA" stop -m fast 2>/dev/null && log "PostgreSQL 已停止" || true
     fi
 
     log "所有服务已停止。"
@@ -83,7 +104,7 @@ if pg_isready -h "$PGDATA/run" > /dev/null 2>&1; then
     log "   PostgreSQL 已在运行 ✅"
 else
     log "   启动 PostgreSQL..."
-    if /usr/lib/postgresql/14/bin/pg_ctl -D "$PGDATA" -l "$PG_LOG" start > /dev/null 2>&1; then
+    if "$PG_CTL" -D "$PGDATA" -l "$PG_LOG" start > /dev/null 2>&1; then
         sleep 1
         if pg_isready -h "$PGDATA/run" > /dev/null 2>&1; then
             log "   PostgreSQL 启动成功 ✅"

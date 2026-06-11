@@ -54,36 +54,112 @@ public class SaveFileService
         }
     }
 
-    /// <summary>读取存档二进制：优先文件系统，回退 DB（旧数据兼容）</summary>
-    private byte[] ReadSaveBytes(SaveFileEntity entity)
+    /// <summary>
+    /// 读取存档二进制 — 规范路径优先，兼容旧 save_path，并在可行时同步修复 DB。
+    /// 规范路径始终由 ContentRootPath/data/saves/{userId}/{saveFileId}/save.sav 派生。
+    /// </summary>
+    public byte[] ReadSaveBytes(SaveFileEntity entity, Guid userId)
     {
-        // 文件系统优先
-        if (!string.IsNullOrEmpty(entity.SavePath) && File.Exists(entity.SavePath))
-            return File.ReadAllBytes(entity.SavePath);
+        var canonical = GetSavePath(userId, entity.Id);
 
-        // 回退：DB 中的旧数据（迁移过渡期）
+        // 1. 规范路径优先
+        if (File.Exists(canonical))
+        {
+            if (!string.Equals(entity.SavePath, canonical, StringComparison.Ordinal))
+                RepairSavePath(entity.Id, canonical);
+            entity.SavePath = canonical;
+            return File.ReadAllBytes(canonical);
+        }
+
+        // 2. 旧 entity.SavePath（跨机器迁移兼容 — 文件还未迁移到规范路径）
+        if (!string.IsNullOrEmpty(entity.SavePath) && !string.Equals(entity.SavePath, canonical, StringComparison.Ordinal) && File.Exists(entity.SavePath))
+        {
+            var legacyData = File.ReadAllBytes(entity.SavePath);
+            try
+            {
+                var dir = Path.GetDirectoryName(canonical);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+                File.Copy(entity.SavePath, canonical, overwrite: true);
+                RepairSavePath(entity.Id, canonical);
+                entity.SavePath = canonical;
+            }
+            catch
+            {
+                // 迁移失败不影响读取，继续返回旧路径数据。
+            }
+            return legacyData;
+        }
+
+        // 3. DB 回退（旧数据兼容）
         if (entity.RawSaveData is { Length: > 0 })
             return entity.RawSaveData;
 
         return Array.Empty<byte>();
     }
 
-    /// <summary>写入存档到文件系统，首次写入时更新 DB 路径</summary>
-    private async Task WriteSaveBytes(SaveFileEntity entity, Guid userId, byte[] data)
+    /// <summary>
+    /// 写入存档到文件系统 — 始终写入规范路径，自动修复 DB 中的过期 save_path。
+    /// </summary>
+    public async Task WriteSaveBytes(SaveFileEntity entity, Guid userId, byte[] data)
     {
-        var savePath = entity.SavePath;
-        if (string.IsNullOrEmpty(savePath))
+        var canonical = GetSavePath(userId, entity.Id);
+        Directory.CreateDirectory(Path.GetDirectoryName(canonical)!);
+        await File.WriteAllBytesAsync(canonical, data);
+
+        if (entity.SavePath != canonical)
         {
-            savePath = GetSavePath(userId, entity.Id);
-            Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
             await _db.ExecuteAsync(
                 "UPDATE save_files SET save_path = @P WHERE id = @Id",
-                new { P = savePath, Id = entity.Id });
+                new { P = canonical, Id = entity.Id });
+            entity.SavePath = canonical;
         }
-        await File.WriteAllBytesAsync(savePath, data);
+
         await _db.ExecuteAsync(
             "UPDATE save_files SET file_size = @S, is_modified = TRUE, updated_at = NOW() WHERE id = @Id",
             new { S = (long)data.Length, Id = entity.Id });
+    }
+
+    /// <summary>规范存档路径（纯计算，不查 DB，无副作用）</summary>
+    public string GetCanonicalSavePath(Guid userId, Guid saveFileId)
+        => GetSavePath(userId, saveFileId);
+
+    /// <summary>
+    /// 一次性迁移：将 DB 中所有过期的绝对 save_path 重写为当前规范路径。
+    /// 仅在启动时调用一次。
+    /// </summary>
+    public async Task MigrateSavePaths()
+    {
+        var rows = await _db.QueryAsync<SaveFileEntity>(
+            "SELECT id, user_id, save_path FROM save_files WHERE save_path IS NOT NULL");
+        var updated = 0;
+        foreach (var row in rows)
+        {
+            var canonical = GetSavePath(row.UserId, row.Id);
+            if (!string.Equals(row.SavePath, canonical, StringComparison.Ordinal))
+            {
+                await _db.ExecuteAsync(
+                    "UPDATE save_files SET save_path = @P WHERE id = @Id",
+                    new { P = canonical, Id = row.Id });
+                updated++;
+            }
+        }
+        if (updated > 0)
+            System.Diagnostics.Debug.WriteLine($"[SaveFileService] Migrated {updated} stale save_path(s) to canonical.");
+    }
+
+    private void RepairSavePath(Guid saveFileId, string canonical)
+    {
+        try
+        {
+            _db.Execute(
+                "UPDATE save_files SET save_path = @P WHERE id = @Id",
+                new { P = canonical, Id = saveFileId });
+        }
+        catch
+        {
+            // 修复失败不影响读写主流程
+        }
     }
 
     // ═══ 查询 ═══════════════════════════════════════════
@@ -103,7 +179,7 @@ public class SaveFileService
             "UPDATE save_files SET last_accessed_at = NOW() WHERE id = @Id",
             new { Id = saveFileId });
 
-        var rawData = ReadSaveBytes(saveFile);
+        var rawData = ReadSaveBytes(saveFile, userId);
 
         SaveFileDetailDto parsed;
         try
@@ -236,11 +312,16 @@ public class SaveFileService
     {
         var sf = await LoadSaveFileEntity(saveFileId, userId);
         // 清理文件系统
+        var canonicalDir = Path.GetDirectoryName(GetSavePath(userId, saveFileId));
+        if (canonicalDir != null && Directory.Exists(canonicalDir))
+        {
+            Directory.Delete(canonicalDir, true);
+        }
         if (!string.IsNullOrEmpty(sf.SavePath))
         {
-            var dir = Path.GetDirectoryName(sf.SavePath);
-            if (dir != null && Directory.Exists(dir))
-                Directory.Delete(dir, true);
+            var legacyDir = Path.GetDirectoryName(sf.SavePath);
+            if (!string.IsNullOrEmpty(legacyDir) && legacyDir != canonicalDir && Directory.Exists(legacyDir))
+                Directory.Delete(legacyDir, true);
         }
         await _db.ExecuteAsync(
             "DELETE FROM save_files WHERE id = @Id AND user_id = @UserId",
@@ -378,7 +459,7 @@ public class SaveFileService
     public PKM? ReadBoxSlot(Guid saveFileId, Guid userId, int boxIndex, int slotIndex)
     {
         var saveFile = LoadSaveFileEntityAsync(saveFileId, userId).Result;
-        var rawData = ReadSaveBytes(saveFile);
+        var rawData = ReadSaveBytes(saveFile, userId);
         PKHeX.Core.SaveFile sav;
         try
         {
@@ -397,7 +478,7 @@ public class SaveFileService
     public PKM? ReadPartySlot(Guid saveFileId, Guid userId, int slotIndex)
     {
         var saveFile = LoadSaveFileEntityAsync(saveFileId, userId).Result;
-        var rawData = ReadSaveBytes(saveFile);
+        var rawData = ReadSaveBytes(saveFile, userId);
         PKHeX.Core.SaveFile sav;
         try
         {
@@ -452,7 +533,7 @@ public class SaveFileService
     public async Task CreateBackup(Guid saveFileId, Guid userId, string? label = null)
     {
         var sf = await LoadSaveFileEntity(saveFileId, userId);
-        var rawData = ReadSaveBytes(sf);
+        var rawData = ReadSaveBytes(sf, userId);
         if (rawData.Length == 0) return; // 空存档不备份
 
         var backupId = Guid.NewGuid();
@@ -501,14 +582,14 @@ public class SaveFileService
     public async Task<(byte[] data, string filename)> GetDownloadData(Guid saveFileId, Guid userId)
     {
         var saveFile = await LoadSaveFileEntity(saveFileId, userId);
-        return (ReadSaveBytes(saveFile), saveFile.Filename);
+        return (ReadSaveBytes(saveFile, userId), saveFile.Filename);
     }
 
     public async Task<BatchLegalityReportDto> BatchLegalityScan(
         Guid saveFileId, Guid userId, PokemonEditService pokemonEditService)
     {
         var saveFile = await LoadSaveFileEntity(saveFileId, userId);
-        var rawData = ReadSaveBytes(saveFile);
+        var rawData = ReadSaveBytes(saveFile, userId);
         var hash = ComputeContentHash(rawData);
 
         // 查缓存
@@ -967,7 +1048,7 @@ public class SaveFileService
     internal async Task<(SaveFileEntity, PKHeX.Core.SaveFile)> LoadSave(Guid saveFileId, Guid userId)
     {
         var sf = await LoadSaveFileEntity(saveFileId, userId);
-        var rawData = ReadSaveBytes(sf);
+        var rawData = ReadSaveBytes(sf, userId);
         var sav = ParseService.OpenSaveFile(rawData, sf.Filename);
         return (sf, sav);
     }
@@ -977,7 +1058,7 @@ public class SaveFileService
     {
         // 写入前自动备份
         await CreateBackup(sf.Id, userId, "编辑前自动备份");
-        var originalData = ReadSaveBytes(sf);
+        var originalData = ReadSaveBytes(sf, userId);
         var data = ParseService.FinalizeSaveBytes(sav, originalData);
         ValidateWrittenSave(data, sf.Filename);
         await WriteSaveBytes(sf, userId, data);

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
 
 namespace PkManager.Server.Middleware;
 
@@ -11,12 +12,10 @@ public class ExceptionLoggingMiddleware
     private readonly RequestDelegate _next;
     private readonly string _logDir;
 
-    public ExceptionLoggingMiddleware(RequestDelegate next, IConfiguration config)
+    public ExceptionLoggingMiddleware(RequestDelegate next, IWebHostEnvironment env)
     {
         _next = next;
-        var contentRoot = config["ContentRootPath"]
-                          ?? Path.Combine(Directory.GetCurrentDirectory(), "data");
-        _logDir = Path.Combine(contentRoot, "logs");
+        _logDir = Path.Combine(env.ContentRootPath, "data", "logs");
         Directory.CreateDirectory(_logDir);
     }
 
