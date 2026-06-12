@@ -1066,6 +1066,29 @@ public class SaveFileService
             };
         }
 
+        // ── Zygarde Cell (Gen7 SM/USUM) ──
+        var eventWork = PkhexSaveAdapters.GetEventWork7(sav);
+        cap.HasZygardeCells = eventWork != null;
+
+        if (eventWork != null)
+        {
+            var totalCount = eventWork.TotalZygardeCellCount;
+            var cells = new List<ZygardeCellDto>(totalCount);
+            int collectedCount = 0;
+            for (int i = 0; i < totalCount; i++)
+            {
+                bool collected = eventWork.GetZygardeCell(i) != 0;
+                if (collected) collectedCount++;
+                cells.Add(new ZygardeCellDto { Index = i, Collected = collected });
+            }
+            dto.Zygarde = new ZygardeDto
+            {
+                CollectedCount = collectedCount,
+                TotalCount = totalCount,
+                Cells = cells,
+            };
+        }
+
         dto.Capability = cap;
         return dto;
     }
@@ -1149,6 +1172,34 @@ public class SaveFileService
                                 entry.LevelMaxUnlocked ? OPowerFlagState.Unlocked : OPowerFlagState.Locked);
                     }
                 }
+            }
+        }
+
+        // ── Zygarde Cell (Gen7 SM/USUM) ──
+        if (dto.Zygarde != null)
+        {
+            var eventWork = PkhexSaveAdapters.GetEventWork7(sav);
+            if (eventWork != null && dto.Zygarde.Cells is { Count: > 0 })
+            {
+                uint maxCells = (uint)eventWork.TotalZygardeCellCount;
+
+                // 1) 写入每个 cell（忽略越界 index）
+                foreach (var cell in dto.Zygarde.Cells)
+                {
+                    if ((uint)cell.Index >= maxCells) continue;
+                    eventWork.SetZygardeCell(cell.Index, cell.Collected ? (ushort)1 : (ushort)0);
+                }
+
+                // 2) 遍历全量 cell 重新统计 ZygardeCellCount，不信任 dto 前端计数值
+                ushort actualCollected = 0;
+                for (int i = 0; i < (int)maxCells; i++)
+                {
+                    if (eventWork.GetZygardeCell(i) != 0)
+                        actualCollected++;
+                }
+                eventWork.ZygardeCellCount = actualCollected;
+
+                // 3) ZygardeCellTotal (index 161) 保持原值不修改
             }
         }
 

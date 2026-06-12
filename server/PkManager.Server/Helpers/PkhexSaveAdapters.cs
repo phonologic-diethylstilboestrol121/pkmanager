@@ -136,4 +136,17 @@ internal static class PkhexSaveAdapters
         SAV6AO ao => ao.OPower,
         _ => null,
     };
+
+    // ═══ Gen7 Zygarde Cell ════════════════════════════════
+
+    /// <summary>
+    /// 获取 Gen7 (SM/USUM) EventWork7 数据（含 Zygarde Cell 收集进度）。
+    /// SAV7b (Let's Go) 不在此分支，其 EventWork 不含 Zygarde 数据。
+    /// </summary>
+    public static EventWork7? GetEventWork7(SaveFile sav) => sav switch
+    {
+        SAV7SM sm => sm.EventWork,
+        SAV7USUM usum => usum.EventWork,
+        _ => null,
+    };
 }

@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { Card, InputNumber, Button, App, Spin, Alert, Typography, Row, Col, Space, Checkbox, Tag, Divider } from 'antd';
-import { SaveOutlined, ClockCircleOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { Card, InputNumber, Button, App, Spin, Alert, Typography, Row, Col, Space, Checkbox, Tag, Divider, Progress } from 'antd';
+import { SaveOutlined, ClockCircleOutlined, ReloadOutlined, ThunderboltOutlined, AimOutlined } from '@ant-design/icons';
 import { saveFileApi, type GenToolsDto, type Rtc3EntryDto, type OPowerTypeEntryDto } from '../../api/saveFile';
 
 const { Text, Title } = Typography;
@@ -69,6 +69,48 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
     });
   };
 
+  // ── Zygarde helpers ──────────────────────────────────
+
+  const handleZygardeCellToggle = (index: number) => {
+    if (!genTools?.zygarde?.cells) return;
+    const newCells = genTools.zygarde.cells.map(c =>
+      c.index === index ? { ...c, collected: !c.collected } : c
+    );
+    const newCollectedCount = newCells.filter(c => c.collected).length;
+    setGenTools({
+      ...genTools,
+      zygarde: {
+        ...genTools.zygarde,
+        cells: newCells,
+        collectedCount: newCollectedCount,
+      },
+    });
+  };
+
+  const handleZygardeMarkAll = () => {
+    if (!genTools?.zygarde?.cells) return;
+    setGenTools({
+      ...genTools,
+      zygarde: {
+        ...genTools.zygarde,
+        cells: genTools.zygarde.cells.map(c => ({ ...c, collected: true })),
+        collectedCount: genTools.zygarde.cells.length,
+      },
+    });
+  };
+
+  const handleZygardeClearAll = () => {
+    if (!genTools?.zygarde?.cells) return;
+    setGenTools({
+      ...genTools,
+      zygarde: {
+        ...genTools.zygarde,
+        cells: genTools.zygarde.cells.map(c => ({ ...c, collected: false })),
+        collectedCount: 0,
+      },
+    });
+  };
+
   // ── Save ─────────────────────────────────────────────
 
   const handleSave = async () => {
@@ -110,14 +152,15 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
 
   const hasRtc = genTools?.capability.hasRtc ?? false;
   const hasOPowers = genTools?.capability.hasOPowers ?? false;
+  const hasZygardeCells = genTools?.capability.hasZygardeCells ?? false;
 
-  if (!hasRtc && !hasOPowers) {
+  if (!hasRtc && !hasOPowers && !hasZygardeCells) {
     return (
       <div style={{ padding: 24 }}>
         <Alert
           type="info"
           message="当前存档不支持专用工具功能"
-          description="专用工具当前支持：Gen3 红宝石/蓝宝石/绿宝石（RTC 时钟）和 Gen6 X/Y/ΩR/αS（O-Power 编辑）。"
+          description="专用工具当前支持：Gen3 红宝石/蓝宝石/绿宝石（RTC 时钟）、Gen6 X/Y/ΩR/αS（O-Power 编辑）和 Gen7 太阳/月亮/究极之日/究极之月（Zygarde Cell 查看）。"
           showIcon
         />
       </div>
@@ -136,6 +179,7 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
   // ── O-Power grouped entries ──────────────────────────
 
   const oPower = genTools?.opower;
+  const zygarde = genTools?.zygarde;
   const fieldEntries = oPower?.entries?.filter(e => e.category === 'field') ?? [];
   const battleEntries = oPower?.entries?.filter(e => e.category === 'battle') ?? [];
 
@@ -315,6 +359,80 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
           <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
             O-Power 是 Gen6 (X/Y/ΩR/αS) 的特色系统。修改等级和解锁标志后请在游戏中验证效果。
           </Text>
+        </div>
+      )}
+
+      {/* ── Zygarde Cell 查看 ── */}
+      {hasZygardeCells && zygarde && (
+        <div>
+          {(hasRtc || hasOPowers) && <Divider style={{ margin: '8px 0 20px' }} />}
+
+          <Title level={5} style={{ marginBottom: 12 }}>
+            <AimOutlined style={{ marginRight: 6 }} />
+            Zygarde Cell / Core 收集进度
+          </Title>
+
+          {/* 进度概览卡片 */}
+          <Card size="small" style={{ marginBottom: 16 }}>
+            <Row gutter={[24, 8]} align="middle">
+              <Col>
+                <Text strong>收集进度: {zygarde.collectedCount} / {zygarde.totalCount}</Text>
+              </Col>
+              <Col flex="auto">
+                <Progress
+                  percent={Math.round((zygarde.collectedCount / zygarde.totalCount) * 100)}
+                  size="small"
+                  status={zygarde.collectedCount === zygarde.totalCount ? 'success' : 'active'}
+                />
+              </Col>
+              <Col>
+                <Space>
+                  <Button size="small" onClick={handleZygardeMarkAll}>全部标记</Button>
+                  <Button size="small" onClick={handleZygardeClearAll}>全部清除</Button>
+                </Space>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* Cell 网格 — 固定 10 列，窄屏横向滚动 */}
+          <Card size="small" title="Cell 详情" style={{ overflowX: 'auto' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(10, 1fr)',
+              gap: 4,
+              width: 480,
+              minWidth: 480,
+            }}>
+              {zygarde.cells.map(cell => (
+                <div
+                  key={cell.index}
+                  onClick={() => handleZygardeCellToggle(cell.index)}
+                  title={`Cell #${cell.index + 1} - ${cell.collected ? '已收集' : '未收集'}`}
+                  style={{
+                    aspectRatio: '1',
+                    borderRadius: 6,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: cell.collected ? '#fff' : 'var(--color-text-secondary, #888)',
+                    background: cell.collected ? '#52c41a' : '#f0f0f0',
+                    border: cell.collected ? '2px solid #389e0d' : '2px solid #d9d9d9',
+                    transition: 'all 0.15s',
+                    userSelect: 'none',
+                  } as React.CSSProperties}
+                >
+                  {cell.index + 1}
+                </div>
+              ))}
+            </div>
+            <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
+              点击格子切换收集状态。绿色 = 已收集，灰色 = 未收集。
+              Zygarde Cell 是 Gen7 (太阳/月亮/究极之日/究极之月) 的特色系统，共 {zygarde.totalCount} 个。
+            </Text>
+          </Card>
         </div>
       )}
 

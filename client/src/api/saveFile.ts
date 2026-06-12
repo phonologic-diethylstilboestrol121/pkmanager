@@ -438,6 +438,7 @@ export const saveFileApi = {
 export interface GenToolsCapability {
   hasRtc: boolean;
   hasOPowers: boolean;
+  hasZygardeCells: boolean;
 }
 
 export interface Rtc3EntryDto {
@@ -471,10 +472,22 @@ export interface OPowerDto {
   entries: OPowerTypeEntryDto[];
 }
 
+export interface ZygardeCellDto {
+  index: number;       // 0-based (0~94 SM, 0~99 USUM)
+  collected: boolean;  // 是否已收集
+}
+
+export interface ZygardeDto {
+  collectedCount: number;
+  totalCount: number;
+  cells: ZygardeCellDto[];
+}
+
 export interface GenToolsDto {
   capability: GenToolsCapability;
   rtcEntries?: Rtc3EntryDto[];
   opower?: OPowerDto;
+  zygarde?: ZygardeDto;
 }
 
 // ── Bag types ─────────────────────────────────────────

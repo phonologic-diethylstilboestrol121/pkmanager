@@ -439,15 +439,19 @@ const SaveEditor: React.FC = () => {
       { key: 'trainer', label: '👤 训练家' },
       { key: 'pokedex', label: '📖 图鉴' },
     ];
-    if (saveData?.generation === 3 || saveData?.generation === 6) {
+    // Gen7: 支持具体版本 30-33，以及历史复合版本 71/72；排除 LGPE 42/43/73
+    const isGen7SMUSUM = saveData?.gameVersion != null
+      && [30, 31, 32, 33, 71, 72].includes(saveData.gameVersion);
+    if (saveData?.generation === 3 || saveData?.generation === 6 || isGen7SMUSUM) {
       items.push({ key: 'gen-tools', label: '🔧 专用工具' });
     }
     return items;
-  }, [saveData?.generation]);
+  }, [saveData?.generation, saveData?.gameVersion]);
 
-  const visibleActiveTab = activeTab === 'gen-tools' && saveData?.generation !== 3 && saveData?.generation !== 6
-    ? 'boxes'
-    : activeTab;
+  const isGenToolsTab = activeTab === 'gen-tools';
+  const isGenToolsSupported = saveData?.generation === 3 || saveData?.generation === 6
+    || (saveData?.gameVersion != null && [30, 31, 32, 33, 71, 72].includes(saveData.gameVersion));
+  const visibleActiveTab = isGenToolsTab && !isGenToolsSupported ? 'boxes' : activeTab;
 
   if (!isAuthenticated) return <div style={{ padding: 48, textAlign: 'center' }}>请先登录</div>;
   if (loading) return <div style={{ padding: 48, textAlign: 'center' }}><Spin size="large" /></div>;

@@ -2,12 +2,13 @@ namespace PkManager.Server.Models.Response;
 
 /// <summary>
 /// 世代专属工具 capability — 前端条件渲染开关。
-/// RTC（Gen3 RS/Emerald）、O-Power（Gen6 XY/ORAS）。
+/// RTC（Gen3 RS/Emerald）、O-Power（Gen6 XY/ORAS）、Zygarde Cell（Gen7 SM/USUM）。
 /// </summary>
 public class GenToolsCapability
 {
     public bool HasRtc { get; set; }
     public bool HasOPowers { get; set; }
+    public bool HasZygardeCells { get; set; }
 }
 
 /// <summary>
@@ -82,6 +83,33 @@ public class OPowerDto
 }
 
 /// <summary>
+/// 单个 Zygarde Cell/Core 条目（Gen7 SM/USUM）。
+/// </summary>
+public class ZygardeCellDto
+{
+    /// <summary>0-based cell 编号 (0~94 SM, 0~99 USUM)</summary>
+    public int Index { get; set; }
+
+    /// <summary>是否已收集 (GetZygardeCell != 0)</summary>
+    public bool Collected { get; set; }
+}
+
+/// <summary>
+/// Zygarde Cell/Core 收集数据（Gen7 SM/USUM）。
+/// </summary>
+public class ZygardeDto
+{
+    /// <summary>已收集 cell 数量（后端从逐个 cell 遍历统计）</summary>
+    public int CollectedCount { get; set; }
+
+    /// <summary>存档中最大 cell 数（TotalZygardeCellCount: 95 SM / 100 USUM）</summary>
+    public int TotalCount { get; set; }
+
+    /// <summary>逐个 cell 状态列表</summary>
+    public List<ZygardeCellDto> Cells { get; set; } = [];
+}
+
+/// <summary>
 /// 世代专属工具统一响应 DTO。
 /// </summary>
 public class GenToolsDto
@@ -93,4 +121,7 @@ public class GenToolsDto
 
     /// <summary>O-Power 数据（Gen6 XY/ORAS 非 null，其他存档为 null）</summary>
     public OPowerDto? OPower { get; set; }
+
+    /// <summary>Zygarde Cell 收集数据（Gen7 SM/USUM 非 null，其他存档为 null）</summary>
+    public ZygardeDto? Zygarde { get; set; }
 }
