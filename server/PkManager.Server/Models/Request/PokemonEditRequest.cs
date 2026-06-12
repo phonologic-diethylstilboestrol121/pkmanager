@@ -99,6 +99,34 @@ public class PokemonEditRequest
     public byte? ContestTough { get; set; }
     public byte? ContestSheen { get; set; }  // Gen3-4
 
+    // ── Gen-Specific Tab ───────────────────────────────
+    // Gen3 Colosseum/XD Shadow
+    public int? Purification { get; set; }
+
+    // Gen4 HGSS Shiny Leaves (raw bitfield — front-end preserves bits 6-7)
+    public int? ShinyLeaf { get; set; }
+
+    // Gen5 NSparkle / PokeStar
+    public bool? NSparkle { get; set; }
+    public byte? PokeStarFame { get; set; }
+
+    // Gen6-7 Super Training
+    public bool? SecretSuperTrainingUnlocked { get; set; }
+    public bool[]? SuperTrainRegimenFlags { get; set; }
+    public bool[]? DistSuperTrainFlags { get; set; }
+
+    // Gen6-7 Amie Fullness/Enjoyment
+    public byte? Fullness { get; set; }
+    public byte? Enjoyment { get; set; }
+
+    // Gen7 Hyper Training
+    public bool[]? HyperTrainFlags { get; set; }
+
+    // Gen7 LGPE (PB7 + ICombatPower)
+    public int? CombatPower { get; set; }
+    public byte? Spirit { get; set; }
+    public byte? Mood { get; set; }
+
     // ── Ribbons ───────────────────────────────────────
     public int[]? RibbonFlags { get; set; }  // 0-based indices of enabled ribbons
 }

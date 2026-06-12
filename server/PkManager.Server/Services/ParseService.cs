@@ -417,6 +417,46 @@ public class ParseService
             ContestSheen = (pkm as IContestStats)?.ContestSheen ?? 0,
             OriginMark = GetOriginMark(pkm),
 
+            // ── Gen-Specific Tab ─────────────────────
+            // Gen3 Colosseum/XD Shadow
+            ShadowID = (pkm as IShadowCapture)?.ShadowID,
+            Purification = (pkm as IShadowCapture)?.Purification,
+            IsShadow = (pkm as IShadowCapture)?.IsShadow ?? false,
+
+            // Gen4 HGSS Shiny Leaves (raw bitfield)
+            ShinyLeaf = (pkm as G4PKM)?.ShinyLeaf,
+
+            // Gen5 NSparkle / PokeStar (PK5 class-only props)
+            NSparkle = (pkm as PK5)?.NSparkle,
+            PokeStarFame = (pkm as PK5)?.PokeStarFame,
+            IsPokeStar = (pkm as PK5)?.IsPokeStar ?? false,
+
+            // Gen6-7 Super Training
+            SuperTrainingEnabled = pkm is ISuperTrain,
+            SecretSuperTrainingUnlocked = (pkm as ISuperTrain)?.SecretSuperTrainingUnlocked,
+            SuperTrainSupremelyTrained = (pkm as ISuperTrain)?.SuperTrainSupremelyTrained ?? false,
+            SuperTrainRegimenFlags = pkm is ISuperTrainRegimen str
+                ? Enumerable.Range(0, 30).Select(i => str.GetRegimenState(i)).ToArray()
+                : null,
+            DistSuperTrainFlags = pkm is ISuperTrainRegimen str2
+                ? Enumerable.Range(0, 6).Select(i => str2.GetRegimenStateDistribution(i)).ToArray()
+                : null,
+
+            // Gen6-7 Amie Fullness/Enjoyment
+            Fullness = (pkm as IFullnessEnjoyment)?.Fullness,
+            Enjoyment = (pkm as IFullnessEnjoyment)?.Enjoyment,
+
+            // Gen7 Hyper Training
+            HyperTrainingEnabled = pkm is IHyperTrain,
+            HyperTrainFlags = pkm is IHyperTrain ht7
+                ? new[] { ht7.HT_HP, ht7.HT_ATK, ht7.HT_DEF, ht7.HT_SPA, ht7.HT_SPD, ht7.HT_SPE }
+                : null,
+
+            // Gen7 LGPE (PB7 class-only props)
+            CombatPower = (pkm as ICombatPower)?.Stat_CP,
+            Spirit = (pkm as PB7)?.Spirit,
+            Mood = (pkm as PB7)?.Mood,
+
             // ── General ──────────────────────────────
             Format = pkm.Format,
             IsValid = true,

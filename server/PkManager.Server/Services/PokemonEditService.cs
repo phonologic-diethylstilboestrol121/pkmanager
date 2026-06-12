@@ -404,6 +404,57 @@ public class PokemonEditService
             if (request.ContestTough.HasValue) cs.ContestTough = request.ContestTough.Value;
             if (request.ContestSheen.HasValue) cs.ContestSheen = request.ContestSheen.Value;
         }
+
+        // ── Gen-Specific Tab ──────────────────────────────
+        // Gen3 Colosseum/XD Shadow (Purification = Heart Gauge absolute counter)
+        if (request.Purification.HasValue && pkm is IShadowCapture sc)
+            sc.Purification = Math.Clamp(request.Purification.Value, -10000, 10000);
+
+        // Gen4 HGSS Shiny Leaves (raw bitfield, backed by byte[0x41])
+        if (request.ShinyLeaf.HasValue && pkm is G4PKM g4)
+            g4.ShinyLeaf = request.ShinyLeaf.Value & 0xFF;
+
+        // Gen5 NSparkle / PokeStar
+        if (pkm is PK5 pk5)
+        {
+            if (request.NSparkle.HasValue) pk5.NSparkle = request.NSparkle.Value;
+            if (request.PokeStarFame.HasValue) pk5.PokeStarFame = request.PokeStarFame.Value;
+        }
+
+        // Gen6-7 Super Training (strict length guards)
+        if (request.SecretSuperTrainingUnlocked.HasValue && pkm is ISuperTrain st1)
+            st1.SecretSuperTrainingUnlocked = request.SecretSuperTrainingUnlocked.Value;
+        if (request.SuperTrainRegimenFlags is { Length: 30 } && pkm is ISuperTrainRegimen str1)
+            for (int i = 0; i < 30; i++) str1.SetRegimenState(i, request.SuperTrainRegimenFlags[i]);
+        if (request.DistSuperTrainFlags is { Length: 6 } && pkm is ISuperTrainRegimen str2)
+            for (int i = 0; i < 6; i++) str2.SetRegimenStateDistribution(i, request.DistSuperTrainFlags[i]);
+
+        // Gen6-7 Amie Fullness/Enjoyment (clamped to byte range)
+        if (pkm is IFullnessEnjoyment fe)
+        {
+            if (request.Fullness.HasValue) fe.Fullness = (byte)Math.Clamp((int)request.Fullness.Value, 0, 255);
+            if (request.Enjoyment.HasValue) fe.Enjoyment = (byte)Math.Clamp((int)request.Enjoyment.Value, 0, 255);
+        }
+
+        // Gen7 Hyper Training (strict length guard)
+        if (request.HyperTrainFlags is { Length: 6 } && pkm is IHyperTrain ht)
+        {
+            ht.HT_HP = request.HyperTrainFlags[0];
+            ht.HT_ATK = request.HyperTrainFlags[1];
+            ht.HT_DEF = request.HyperTrainFlags[2];
+            ht.HT_SPA = request.HyperTrainFlags[3];
+            ht.HT_SPD = request.HyperTrainFlags[4];
+            ht.HT_SPE = request.HyperTrainFlags[5];
+        }
+
+        // Gen7 LGPE Combat Power / Spirit / Mood
+        if (request.CombatPower.HasValue && pkm is ICombatPower cp)
+            cp.Stat_CP = Math.Max(0, request.CombatPower.Value);
+        if (pkm is PB7 pb7)
+        {
+            if (request.Spirit.HasValue) pb7.Spirit = (byte)Math.Clamp((int)request.Spirit.Value, 0, 255);
+            if (request.Mood.HasValue) pb7.Mood = (byte)Math.Clamp((int)request.Mood.Value, 0, 255);
+        }
     }
 
     /// <summary>

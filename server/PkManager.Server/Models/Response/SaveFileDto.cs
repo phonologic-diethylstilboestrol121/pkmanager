@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PkManager.Server.Models.Response;
 
 public class SaveFileDto
@@ -145,6 +147,42 @@ public class PokemonDto
     public byte ContestTough { get; set; }
     public byte ContestSheen { get; set; }
     public int? OriginMark { get; set; }
+
+    // ── Gen-Specific Tab ─────────────────────
+    // Gen3 Colosseum/XD Shadow (IShadowCapture)
+    [JsonPropertyName("shadowId")]
+    public int? ShadowID { get; set; }
+    public int? Purification { get; set; }
+    public bool IsShadow { get; set; }
+
+    // Gen4 HGSS Shiny Leaves (G4PKM — raw bitfield: bit0-4=leaves, bit5=crown)
+    public int? ShinyLeaf { get; set; }
+
+    // Gen5 NSparkle / PokeStar (PK5 class props)
+    [JsonPropertyName("nSparkle")]
+    public bool? NSparkle { get; set; }
+    public byte? PokeStarFame { get; set; }
+    public bool IsPokeStar { get; set; }
+
+    // Gen6-7 Super Training (ISuperTrain + ISuperTrainRegimen)
+    public bool SuperTrainingEnabled { get; set; }
+    public bool? SecretSuperTrainingUnlocked { get; set; }
+    public bool SuperTrainSupremelyTrained { get; set; }
+    public bool[]? SuperTrainRegimenFlags { get; set; }
+    public bool[]? DistSuperTrainFlags { get; set; }
+
+    // Gen6-7 Amie Fullness/Enjoyment (IFullnessEnjoyment)
+    public byte? Fullness { get; set; }
+    public byte? Enjoyment { get; set; }
+
+    // Gen7 Hyper Training (IHyperTrain)
+    public bool HyperTrainingEnabled { get; set; }
+    public bool[]? HyperTrainFlags { get; set; }
+
+    // Gen7 LGPE (PB7 + ICombatPower)
+    public int? CombatPower { get; set; }
+    public byte? Spirit { get; set; }
+    public byte? Mood { get; set; }
 
     // ── General ──────────────────────────────
     public int Format { get; set; }          // PKM format (3=Gen3 PK3, 4=Gen4 PK4, ..., 7=Gen7 PK7)

@@ -165,7 +165,7 @@ const StatsTab: React.FC<Props> = ({ pokemon, generation, onChange }) => {
 
       {isGen8Plus && (
         <div style={{ marginTop: 12 }}>
-          <div style={sectionTitle}>世代专属</div>
+          <div style={sectionTitle}>扩展属性</div>
           <Space wrap>
             <span>极巨化等级 <InputNumber size="small" min={0} max={10} value={pokemon.dynamaxLevel || 0}
               onChange={(v) => { if (v !== null) { pokemon.dynamaxLevel = v; onChange?.(); } }} /></span>

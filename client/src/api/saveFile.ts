@@ -126,6 +126,33 @@ export interface PokemonDto {
   contestTough: number;
   contestSheen: number;
   originMark?: number;
+  // Gen-Specific Tab
+  // Gen3 Colosseum/XD
+  shadowId?: number;
+  purification?: number;
+  isShadow: boolean;
+  // Gen4 HGSS Shiny Leaves (raw bitfield: bit0-4=leaves, bit5=crown)
+  shinyLeaf?: number;
+  // Gen5 NSparkle / PokeStar
+  nSparkle?: boolean;
+  pokeStarFame?: number;
+  isPokeStar: boolean;
+  // Gen6-7 Super Training
+  superTrainingEnabled: boolean;
+  secretSuperTrainingUnlocked?: boolean;
+  superTrainSupremelyTrained: boolean;
+  superTrainRegimenFlags?: boolean[];
+  distSuperTrainFlags?: boolean[];
+  // Gen6-7 Amie
+  fullness?: number;
+  enjoyment?: number;
+  // Gen7 Hyper Training
+  hyperTrainingEnabled: boolean;
+  hyperTrainFlags?: boolean[];
+  // Gen7 LGPE
+  combatPower?: number;
+  spirit?: number;
+  mood?: number;
   // General
   format: number;      // PKM format (3=PK3/Gen3, 4=PK4/Gen4, ..., 7=PK7/Gen7)
   isValid: boolean;

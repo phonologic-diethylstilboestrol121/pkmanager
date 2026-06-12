@@ -16,6 +16,7 @@ import MovesTab from '../editor/MovesTab';
 import LegalityTab from '../editor/LegalityTab';
 import OTMiscTab from '../editor/OTMiscTab';
 import CosmeticTab from '../editor/CosmeticTab';
+import GenSpecificTab from '../editor/GenSpecificTab';
 
 const { Text } = Typography;
 
@@ -191,6 +192,7 @@ const BankEditDrawer: React.FC<Props> = ({ open, pokemon, bankId, onClose, onSav
     { key: 'met', label: '相遇信息', children: <MetTab pokemon={pokemon} generation={generation} onChange={notifyChange} /> },
     { key: 'otmisc', label: '训练家/杂项', children: <OTMiscTab pokemon={pokemon} generation={generation} onChange={notifyChange} /> },
     { key: 'cosmetic', label: '外观/装饰', children: <CosmeticTab pokemon={pokemon} generation={generation} onChange={notifyChange} /> },
+    { key: 'genspecific', label: '世代专属', children: <GenSpecificTab pokemon={pokemon} generation={generation} onChange={notifyChange} /> },
     {
       key: 'legality',
       label: '合法性',

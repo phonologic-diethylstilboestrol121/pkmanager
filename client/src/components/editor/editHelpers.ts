@@ -32,6 +32,24 @@ export function validateFields(p: PokemonDto): string[] {
   const moveIds = (p.moves || []).map(m => m.moveId).filter(id => id > 0);
   if (new Set(moveIds).size < moveIds.length) errs.push('招式不能重复');
 
+  // Gen-Specific 范围校验
+  if (p.purification != null && (p.purification < -10000 || p.purification > 10000))
+    errs.push('净化值范围异常');
+  if (p.shinyLeaf != null && (p.shinyLeaf < 0 || p.shinyLeaf > 255))
+    errs.push('闪光叶原始值需在0-255范围');
+  if (p.pokeStarFame != null && (p.pokeStarFame < 0 || p.pokeStarFame > 255))
+    errs.push('PokeStarFame 需在0-255范围');
+  if (p.fullness != null && (p.fullness < 0 || p.fullness > 255))
+    errs.push('饱腹度需在0-255范围');
+  if (p.enjoyment != null && (p.enjoyment < 0 || p.enjoyment > 255))
+    errs.push('愉悦度需在0-255范围');
+  if (p.spirit != null && (p.spirit < 0 || p.spirit > 255))
+    errs.push('精神需在0-255范围');
+  if (p.mood != null && (p.mood < 0 || p.mood > 255))
+    errs.push('心情需在0-255范围');
+  if (p.combatPower != null && p.combatPower < 0)
+    errs.push('CP不能为负');
+
   return errs;
 }
 
@@ -107,5 +125,26 @@ export function buildEditRequest(pokemon: PokemonDto): Record<string, unknown> {
     contestSmart: pokemon.contestSmart,
     contestTough: pokemon.contestTough,
     contestSheen: pokemon.contestSheen,
+    // -- Gen-Specific Tab --
+    purification: pokemon.purification ?? null,
+    shinyLeaf: pokemon.shinyLeaf ?? null,
+    nSparkle: pokemon.nSparkle ?? null,
+    pokeStarFame: pokemon.pokeStarFame ?? null,
+    secretSuperTrainingUnlocked: pokemon.secretSuperTrainingUnlocked ?? null,
+    // 确保固定长度（不足补false，超长截断）
+    superTrainRegimenFlags: pokemon.superTrainRegimenFlags
+      ? (() => { const a = [...pokemon.superTrainRegimenFlags!]; while (a.length < 30) a.push(false); return a.slice(0, 30); })()
+      : null,
+    distSuperTrainFlags: pokemon.distSuperTrainFlags
+      ? (() => { const a = [...pokemon.distSuperTrainFlags!]; while (a.length < 6) a.push(false); return a.slice(0, 6); })()
+      : null,
+    fullness: pokemon.fullness ?? null,
+    enjoyment: pokemon.enjoyment ?? null,
+    hyperTrainFlags: pokemon.hyperTrainFlags
+      ? (() => { const a = [...pokemon.hyperTrainFlags!]; while (a.length < 6) a.push(false); return a.slice(0, 6); })()
+      : null,
+    combatPower: pokemon.combatPower ?? null,
+    spirit: pokemon.spirit ?? null,
+    mood: pokemon.mood ?? null,
   };
 }

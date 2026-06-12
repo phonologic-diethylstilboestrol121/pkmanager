@@ -15,6 +15,7 @@ import MovesTab from './MovesTab';
 import LegalityTab from './LegalityTab';
 import OTMiscTab from './OTMiscTab';
 import CosmeticTab from './CosmeticTab';
+import GenSpecificTab from './GenSpecificTab';
 
 interface Props {
   open: boolean;
@@ -188,6 +189,11 @@ const EditPanel: React.FC<Props> = ({ open, pokemon, generation, saveFileId, box
       key: 'cosmetic',
       label: '外观/装饰',
       children: <CosmeticTab pokemon={pokemon} generation={generation} onChange={notifyChange} />,
+    },
+    {
+      key: 'genspecific',
+      label: '世代专属',
+      children: <GenSpecificTab pokemon={pokemon} generation={generation} onChange={notifyChange} />,
     },
     {
       key: 'legality',
