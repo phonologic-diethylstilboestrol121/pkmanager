@@ -963,7 +963,40 @@ public class SaveFileService
     // ═══ 世代专属工具（Gen Tools）════════════════════════
 
     /// <summary>
-    /// 获取存档世代专属工具数据 — 当前仅 RTC（Gen3 RS/Emerald）。
+    /// O-Power 元数据 — 将 DTO key ↔ 中文名 ↔ 分类 ↔ PKHeX 枚举绑定在一起。
+    /// 读写均由此表驱动，不手写 if/switch。
+    /// </summary>
+    private sealed record OPowerMeta(
+        string Key, string Name, string Category,
+        OPower6FieldType? FieldType, OPower6BattleType? BattleType,
+        OPower6Index IdxLv1, OPower6Index IdxLv2, OPower6Index IdxLv3,
+        OPower6Index? IdxS, OPower6Index? IdxMax);
+
+    private static readonly OPowerMeta[] OPowerMetaTable =
+    [
+        // ── Field (10) ──
+        new("hatching",    "孵化",   "field", OPower6FieldType.Hatching,    null, OPower6Index.Hatching1,    OPower6Index.Hatching2,    OPower6Index.Hatching3,    OPower6Index.HatchingS, OPower6Index.HatchingMAX),
+        new("bargain",     "打折",   "field", OPower6FieldType.Bargain,     null, OPower6Index.Bargain1,     OPower6Index.Bargain2,     OPower6Index.Bargain3,     OPower6Index.BargainS,  OPower6Index.BargainMAX),
+        new("prizeMoney",  "奖金",   "field", OPower6FieldType.PrizeMoney,  null, OPower6Index.PrizeMoney1,  OPower6Index.PrizeMoney2,  OPower6Index.PrizeMoney3,  OPower6Index.PrizeMoneyS, OPower6Index.PrizeMoneyMAX),
+        new("experience",  "经验",   "field", OPower6FieldType.Experience,  null, OPower6Index.Experience1,  OPower6Index.Experience2,  OPower6Index.Experience3,  OPower6Index.ExperienceS, OPower6Index.ExperienceMAX),
+        new("capture",     "捕获",   "field", OPower6FieldType.Capture,     null, OPower6Index.Capture1,     OPower6Index.Capture2,     OPower6Index.Capture3,     OPower6Index.CaptureS,   OPower6Index.CaptureMAX),
+        new("encounter",   "遭遇",   "field", OPower6FieldType.Encounter,   null, OPower6Index.Encounter1,   OPower6Index.Encounter2,   OPower6Index.Encounter3,   null, null),
+        new("stealth",     "潜行",   "field", OPower6FieldType.Stealth,     null, OPower6Index.Stealth1,     OPower6Index.Stealth2,     OPower6Index.Stealth3,     null, null),
+        new("hpRestoring", "HP回复", "field", OPower6FieldType.HPRestoring, null, OPower6Index.HPRestoring1, OPower6Index.HPRestoring2, OPower6Index.HPRestoring3, null, null),
+        new("ppRestoring", "PP回复", "field", OPower6FieldType.PPRestoring, null, OPower6Index.PPRestoring1, OPower6Index.PPRestoring2, OPower6Index.PPRestoring3, null, null),
+        new("befriending", "友好",   "field", OPower6FieldType.Befriending, null, OPower6Index.Befriending1, OPower6Index.Befriending2, OPower6Index.Befriending3, OPower6Index.BefriendingS, OPower6Index.BefriendingMAX),
+        // ── Battle (7) ──
+        new("attack",      "攻击",   "battle", null, OPower6BattleType.Attack,     OPower6Index.Attack1,       OPower6Index.Attack2,       OPower6Index.Attack3,       null, null),
+        new("defense",     "防御",   "battle", null, OPower6BattleType.Defense,    OPower6Index.Defense1,      OPower6Index.Defense2,      OPower6Index.Defense3,      null, null),
+        new("spAttack",    "特攻",   "battle", null, OPower6BattleType.Sp_Attack,  OPower6Index.SpecialAttack1,  OPower6Index.SpecialAttack2,  OPower6Index.SpecialAttack3,  null, null),
+        new("spDefense",   "特防",   "battle", null, OPower6BattleType.Sp_Defense, OPower6Index.SpecialDefense1, OPower6Index.SpecialDefense2, OPower6Index.SpecialDefense3, null, null),
+        new("speed",       "速度",   "battle", null, OPower6BattleType.Speed,      OPower6Index.Speed1,        OPower6Index.Speed2,        OPower6Index.Speed3,        null, null),
+        new("critical",    "会心",   "battle", null, OPower6BattleType.Critical,   OPower6Index.Critical1,     OPower6Index.Critical2,     OPower6Index.Critical3,     null, null),
+        new("accuracy",    "命中",   "battle", null, OPower6BattleType.Accuracy,   OPower6Index.Accuracy1,     OPower6Index.Accuracy2,     OPower6Index.Accuracy3,     null, null),
+    ];
+
+    /// <summary>
+    /// 获取存档世代专属工具数据 — RTC（Gen3 RS/Emerald）+ O-Power（Gen6 XY/ORAS）。
     /// </summary>
     public async Task<GenToolsDto> GetGenTools(Guid saveFileId, Guid userId)
     {
@@ -971,6 +1004,7 @@ public class SaveFileService
         var dto = new GenToolsDto();
         var cap = new GenToolsCapability();
 
+        // ── RTC (Gen3 Hoenn) ──
         var (clockInitial, clockElapsed) = PkhexSaveAdapters.GetRTC3(sav);
         cap.HasRtc = clockInitial != null;
 
@@ -993,12 +1027,51 @@ public class SaveFileService
             ];
         }
 
+        // ── O-Power (Gen6 XY/ORAS) ──
+        var oPower = PkhexSaveAdapters.GetOPower(sav);
+        cap.HasOPowers = oPower != null;
+
+        if (oPower != null)
+        {
+            var entries = new List<OPowerTypeEntryDto>(OPowerMetaTable.Length);
+            foreach (var m in OPowerMetaTable)
+            {
+                var entry = new OPowerTypeEntryDto
+                {
+                    Key = m.Key,
+                    Name = m.Name,
+                    Category = m.Category,
+                    Level1 = m.FieldType != null
+                        ? oPower.GetLevel1(m.FieldType.Value)
+                        : oPower.GetLevel1(m.BattleType!.Value),
+                    Level2 = m.FieldType != null
+                        ? oPower.GetLevel2(m.FieldType.Value)
+                        : oPower.GetLevel2(m.BattleType!.Value),
+                    Level1Unlocked = oPower.GetState(m.IdxLv1) == OPowerFlagState.Unlocked,
+                    Level2Unlocked = oPower.GetState(m.IdxLv2) == OPowerFlagState.Unlocked,
+                    Level3Unlocked = oPower.GetState(m.IdxLv3) == OPowerFlagState.Unlocked,
+                    HasLevelS = m.IdxS != null,
+                    LevelSUnlocked = m.IdxS != null && oPower.GetState(m.IdxS.Value) == OPowerFlagState.Unlocked,
+                    HasLevelMax = m.IdxMax != null,
+                    LevelMaxUnlocked = m.IdxMax != null && oPower.GetState(m.IdxMax.Value) == OPowerFlagState.Unlocked,
+                };
+                entries.Add(entry);
+            }
+            dto.OPower = new OPowerDto
+            {
+                Points = oPower.Points,
+                EnableUnlocked = oPower.GetState(OPower6Index.Enable) == OPowerFlagState.Unlocked,
+                FullRecoveryUnlocked = oPower.GetState(OPower6Index.FullRecovery) == OPowerFlagState.Unlocked,
+                Entries = entries,
+            };
+        }
+
         dto.Capability = cap;
         return dto;
     }
 
     /// <summary>
-    /// 保存世代专属工具数据 — 当前仅 RTC。
+    /// 保存世代专属工具数据 — RTC + O-Power。
     /// </summary>
     public async Task SaveGenTools(Guid saveFileId, Guid userId, GenToolsDto dto)
     {
@@ -1008,6 +1081,7 @@ public class SaveFileService
 
         var (sf, sav) = await LoadSave(saveFileId, userId);
 
+        // ── RTC (Gen3 Hoenn) ──
         if (dto.RtcEntries is { Count: > 0 })
         {
             var (clockInitial, clockElapsed) = PkhexSaveAdapters.GetRTC3(sav);
@@ -1024,6 +1098,57 @@ public class SaveFileService
                 target.Hour   = Math.Clamp(entry.Hour,   0, 23);
                 target.Minute = Math.Clamp(entry.Minute, 0, 59);
                 target.Second = Math.Clamp(entry.Second, 0, 59);
+            }
+        }
+
+        // ── O-Power (Gen6 XY/ORAS) ──
+        if (dto.OPower != null)
+        {
+            var oPower = PkhexSaveAdapters.GetOPower(sav);
+            if (oPower != null)
+            {
+                // Points
+                oPower.Points = (byte)Math.Clamp(dto.OPower.Points, 0, 255);
+                // Enable + FullRecovery
+                oPower.SetState(OPower6Index.Enable,
+                    dto.OPower.EnableUnlocked ? OPowerFlagState.Unlocked : OPowerFlagState.Locked);
+                oPower.SetState(OPower6Index.FullRecovery,
+                    dto.OPower.FullRecoveryUnlocked ? OPowerFlagState.Unlocked : OPowerFlagState.Locked);
+                // Entries — 仅按已知 key 匹配，未知 key 忽略
+                if (dto.OPower.Entries is { Count: > 0 })
+                {
+                    foreach (var entry in dto.OPower.Entries)
+                    {
+                        var meta = Array.Find(OPowerMetaTable, m => m.Key == entry.Key);
+                        if (meta == null) continue; // 忽略未知 key
+                        // Level
+                        byte lv1 = (byte)Math.Clamp(entry.Level1, 0, 3);
+                        byte lv2 = (byte)Math.Clamp(entry.Level2, 0, 3);
+                        if (meta.FieldType != null)
+                        {
+                            oPower.SetLevel1(meta.FieldType.Value, lv1);
+                            oPower.SetLevel2(meta.FieldType.Value, lv2);
+                        }
+                        else if (meta.BattleType != null)
+                        {
+                            oPower.SetLevel1(meta.BattleType.Value, lv1);
+                            oPower.SetLevel2(meta.BattleType.Value, lv2);
+                        }
+                        // Flags — 通过 SetState + OPowerFlagState 枚举写入
+                        oPower.SetState(meta.IdxLv1,
+                            entry.Level1Unlocked ? OPowerFlagState.Unlocked : OPowerFlagState.Locked);
+                        oPower.SetState(meta.IdxLv2,
+                            entry.Level2Unlocked ? OPowerFlagState.Unlocked : OPowerFlagState.Locked);
+                        oPower.SetState(meta.IdxLv3,
+                            entry.Level3Unlocked ? OPowerFlagState.Unlocked : OPowerFlagState.Locked);
+                        if (meta.IdxS != null)
+                            oPower.SetState(meta.IdxS.Value,
+                                entry.LevelSUnlocked ? OPowerFlagState.Unlocked : OPowerFlagState.Locked);
+                        if (meta.IdxMax != null)
+                            oPower.SetState(meta.IdxMax.Value,
+                                entry.LevelMaxUnlocked ? OPowerFlagState.Unlocked : OPowerFlagState.Locked);
+                    }
+                }
             }
         }
 

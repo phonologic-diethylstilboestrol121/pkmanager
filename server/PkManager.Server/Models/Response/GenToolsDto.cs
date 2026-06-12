@@ -2,11 +2,12 @@ namespace PkManager.Server.Models.Response;
 
 /// <summary>
 /// 世代专属工具 capability — 前端条件渲染开关。
-/// 后续 O-Power / Zygarde Cell 在此追加布尔字段。
+/// RTC（Gen3 RS/Emerald）、O-Power（Gen6 XY/ORAS）。
 /// </summary>
 public class GenToolsCapability
 {
     public bool HasRtc { get; set; }
+    public bool HasOPowers { get; set; }
 }
 
 /// <summary>
@@ -27,8 +28,61 @@ public class Rtc3EntryDto
 }
 
 /// <summary>
+/// 单个 O-Power 类型条目（如 孵化/攻击 等）。
+/// DTO key 为纯标识符，与 PKHeX 枚举的映射在后端元数据表中维护。
+/// </summary>
+public class OPowerTypeEntryDto
+{
+    /// <summary>"hatching", "spAttack" …</summary>
+    public string Key { get; set; } = "";
+
+    /// <summary>中文名："孵化", "特攻" …</summary>
+    public string Name { get; set; } = "";
+
+    /// <summary>"field" | "battle"</summary>
+    public string Category { get; set; } = "";
+
+    /// <summary>Lv.1 等级 (0-3)</summary>
+    public int Level1 { get; set; }
+
+    /// <summary>Lv.2 等级 (0-3)</summary>
+    public int Level2 { get; set; }
+
+    public bool Level1Unlocked { get; set; }
+    public bool Level2Unlocked { get; set; }
+    public bool Level3Unlocked { get; set; }
+
+    /// <summary>是否有 S 变种（部分 Field 类型）</summary>
+    public bool HasLevelS { get; set; }
+
+    public bool LevelSUnlocked { get; set; }
+
+    /// <summary>是否有 MAX 变种（部分 Field 类型）</summary>
+    public bool HasLevelMax { get; set; }
+
+    public bool LevelMaxUnlocked { get; set; }
+}
+
+/// <summary>
+/// O-Power 数据（Gen6 XY/ORAS）。
+/// </summary>
+public class OPowerDto
+{
+    /// <summary>能量点数 (0-255)</summary>
+    public int Points { get; set; }
+
+    /// <summary>系统启用标志 (OPower6Index.Enable)</summary>
+    public bool EnableUnlocked { get; set; }
+
+    /// <summary>完全恢复已解锁 (OPower6Index.FullRecovery)</summary>
+    public bool FullRecoveryUnlocked { get; set; }
+
+    /// <summary>17 种 O-Power 类型（10 Field + 7 Battle）</summary>
+    public List<OPowerTypeEntryDto> Entries { get; set; } = [];
+}
+
+/// <summary>
 /// 世代专属工具统一响应 DTO。
-/// 当前仅包含 RTC（Gen3 RS/Emerald），后续追加 OPower / ZygardeCell 等可空字段。
 /// </summary>
 public class GenToolsDto
 {
@@ -36,4 +90,7 @@ public class GenToolsDto
 
     /// <summary>RTC 时钟条目列表（Gen3 Hoenn 非 null，其他存档为 null）</summary>
     public List<Rtc3EntryDto>? RtcEntries { get; set; }
+
+    /// <summary>O-Power 数据（Gen6 XY/ORAS 非 null，其他存档为 null）</summary>
+    public OPowerDto? OPower { get; set; }
 }

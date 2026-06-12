@@ -124,4 +124,16 @@ internal static class PkhexSaveAdapters
             return (hoenn.ClockInitial, hoenn.ClockElapsed);
         return (null, null);
     }
+
+    // ═══ Gen6 O-Power ═════════════════════════════════════
+
+    /// <summary>
+    /// 获取 Gen6 (XY/ORAS) O-Power 数据。非 Gen6 存档返回 null。
+    /// </summary>
+    public static OPower6? GetOPower(SaveFile sav) => sav switch
+    {
+        SAV6XY xy => xy.OPower,
+        SAV6AO ao => ao.OPower,
+        _ => null,
+    };
 }

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { Card, InputNumber, Button, App, Spin, Alert, Typography, Row, Col, Space } from 'antd';
-import { SaveOutlined, ClockCircleOutlined, ReloadOutlined } from '@ant-design/icons';
-import { saveFileApi, type GenToolsDto, type Rtc3EntryDto } from '../../api/saveFile';
+import { Card, InputNumber, Button, App, Spin, Alert, Typography, Row, Col, Space, Checkbox, Tag, Divider } from 'antd';
+import { SaveOutlined, ClockCircleOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { saveFileApi, type GenToolsDto, type Rtc3EntryDto, type OPowerTypeEntryDto } from '../../api/saveFile';
 
 const { Text, Title } = Typography;
 
@@ -34,6 +34,8 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
     void fetchGenTools();
   }
 
+  // ── RTC helpers ──────────────────────────────────────
+
   const handleRtcChange = (key: string, field: keyof Rtc3EntryDto, value: number | null) => {
     if (!genTools?.rtcEntries) return;
     setGenTools({
@@ -44,18 +46,45 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
     });
   };
 
+  // ── O-Power helpers ──────────────────────────────────
+
+  const handleOPowerChange = (entryKey: string, field: keyof OPowerTypeEntryDto, value: unknown) => {
+    if (!genTools?.opower?.entries) return;
+    setGenTools({
+      ...genTools,
+      opower: {
+        ...genTools.opower,
+        entries: genTools.opower.entries.map(e =>
+          e.key === entryKey ? { ...e, [field]: value } : e,
+        ),
+      },
+    });
+  };
+
+  const handleOPowerTopChange = (field: 'points' | 'enableUnlocked' | 'fullRecoveryUnlocked', value: unknown) => {
+    if (!genTools?.opower) return;
+    setGenTools({
+      ...genTools,
+      opower: { ...genTools.opower, [field]: value },
+    });
+  };
+
+  // ── Save ─────────────────────────────────────────────
+
   const handleSave = async () => {
     if (!genTools) return;
     setSaving(true);
     try {
       await saveFileApi.saveGenTools(saveFileId, genTools);
-      message.success('RTC 时钟已保存');
+      message.success('专用工具设置已保存');
     } catch {
       message.error('保存失败');
     } finally {
       setSaving(false);
     }
   };
+
+  // ── Render states ────────────────────────────────────
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>;
@@ -79,71 +108,217 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
     );
   }
 
-  if (!genTools?.capability.hasRtc) {
+  const hasRtc = genTools?.capability.hasRtc ?? false;
+  const hasOPowers = genTools?.capability.hasOPowers ?? false;
+
+  if (!hasRtc && !hasOPowers) {
     return (
       <div style={{ padding: 24 }}>
         <Alert
           type="info"
-          message="当前存档不支持 RTC 时钟功能"
-          description="RTC（Real-Time Clock）仅在丰缘地区游戏（红宝石/蓝宝石/绿宝石）中可用。火红/叶绿没有实时时钟功能。"
+          message="当前存档不支持专用工具功能"
+          description="专用工具当前支持：Gen3 红宝石/蓝宝石/绿宝石（RTC 时钟）和 Gen6 X/Y/ΩR/αS（O-Power 编辑）。"
           showIcon
         />
       </div>
     );
   }
 
-  const rtcEntries = genTools.rtcEntries;
+  // ── RTC field defs ───────────────────────────────────
 
-  const fieldDefs: Array<{ field: keyof Rtc3EntryDto; label: string; min: number; max: number }> = [
+  const rtcFieldDefs: Array<{ field: keyof Rtc3EntryDto; label: string; min: number; max: number }> = [
     { field: 'day', label: '日', min: 0, max: 65535 },
     { field: 'hour', label: '时', min: 0, max: 23 },
     { field: 'minute', label: '分', min: 0, max: 59 },
     { field: 'second', label: '秒', min: 0, max: 59 },
   ];
 
+  // ── O-Power grouped entries ──────────────────────────
+
+  const oPower = genTools?.opower;
+  const fieldEntries = oPower?.entries?.filter(e => e.category === 'field') ?? [];
+  const battleEntries = oPower?.entries?.filter(e => e.category === 'battle') ?? [];
+
+  const renderOPowerCard = (entry: OPowerTypeEntryDto) => (
+    <Col xs={24} md={12} key={entry.key}>
+      <Card
+        size="small"
+        title={
+          <Space>
+            <Text strong>{entry.name}</Text>
+            <Tag color={entry.category === 'field' ? 'green' : 'red'}>
+              {entry.category === 'field' ? 'Field' : 'Battle'}
+            </Tag>
+          </Space>
+        }
+        style={{ height: '100%' }}
+      >
+        {/* Level values */}
+        <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>Lv.1</Text>
+            <InputNumber
+              value={entry.level1}
+              onChange={v => handleOPowerChange(entry.key, 'level1', v ?? 0)}
+              min={0} max={3} size="small" style={{ width: 60 }}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>Lv.2</Text>
+            <InputNumber
+              value={entry.level2}
+              onChange={v => handleOPowerChange(entry.key, 'level2', v ?? 0)}
+              min={0} max={3} size="small" style={{ width: 60 }}
+            />
+          </div>
+        </div>
+        {/* Unlock flags */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          <Checkbox
+            checked={entry.level1Unlocked}
+            onChange={e => handleOPowerChange(entry.key, 'level1Unlocked', e.target.checked)}
+            style={{ fontSize: 12 }}
+          >Lv.1</Checkbox>
+          <Checkbox
+            checked={entry.level2Unlocked}
+            onChange={e => handleOPowerChange(entry.key, 'level2Unlocked', e.target.checked)}
+            style={{ fontSize: 12 }}
+          >Lv.2</Checkbox>
+          <Checkbox
+            checked={entry.level3Unlocked}
+            onChange={e => handleOPowerChange(entry.key, 'level3Unlocked', e.target.checked)}
+            style={{ fontSize: 12 }}
+          >Lv.3</Checkbox>
+          {entry.hasLevelS && (
+            <Checkbox
+              checked={entry.levelSUnlocked}
+              onChange={e => handleOPowerChange(entry.key, 'levelSUnlocked', e.target.checked)}
+              style={{ fontSize: 12 }}
+            >S</Checkbox>
+          )}
+          {entry.hasLevelMax && (
+            <Checkbox
+              checked={entry.levelMaxUnlocked}
+              onChange={e => handleOPowerChange(entry.key, 'levelMaxUnlocked', e.target.checked)}
+              style={{ fontSize: 12 }}
+            >MAX</Checkbox>
+          )}
+        </div>
+      </Card>
+    </Col>
+  );
+
   return (
     <div>
-      {/* RTC 时钟编辑器 */}
-      <div style={{ marginBottom: 16 }}>
-        <Title level={5} style={{ marginBottom: 12 }}>
-          <ClockCircleOutlined style={{ marginRight: 6 }} />
-          RTC 实时时钟
-        </Title>
-        <Row gutter={[16, 16]}>
-          {rtcEntries?.map(entry => (
-            <Col xs={24} md={12} key={entry.key}>
-              <Card
-                size="small"
-                title={<Text strong>{entry.label}</Text>}
-                style={{ height: '100%' }}
-              >
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  {fieldDefs.map(fd => (
-                    <div key={fd.field} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <Text type="secondary" style={{ width: 28, textAlign: 'right', flexShrink: 0 }}>
-                        {fd.label}
-                      </Text>
-                      <InputNumber
-                        value={entry[fd.field] as number}
-                        onChange={v => handleRtcChange(entry.key, fd.field, v)}
-                        min={fd.min}
-                        max={fd.max}
-                        style={{ flex: 1 }}
-                        size="small"
-                      />
-                    </div>
-                  ))}
-                </Space>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-        <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
-          修改时钟可修复电池耗尽导致的树果不生长、潮汐洞穴不变化等问题。修改后建议在游戏中等待一天以触发时钟同步。
-        </Text>
-      </div>
+      {/* ── RTC 时钟编辑器 ── */}
+      {hasRtc && (
+        <div style={{ marginBottom: 24 }}>
+          <Title level={5} style={{ marginBottom: 12 }}>
+            <ClockCircleOutlined style={{ marginRight: 6 }} />
+            RTC 实时时钟
+          </Title>
+          <Row gutter={[16, 16]}>
+            {genTools?.rtcEntries?.map(entry => (
+              <Col xs={24} md={12} key={entry.key}>
+                <Card
+                  size="small"
+                  title={<Text strong>{entry.label}</Text>}
+                  style={{ height: '100%' }}
+                >
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    {rtcFieldDefs.map(fd => (
+                      <div key={fd.field} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <Text type="secondary" style={{ width: 28, textAlign: 'right', flexShrink: 0 }}>
+                          {fd.label}
+                        </Text>
+                        <InputNumber
+                          value={entry[fd.field] as number}
+                          onChange={v => handleRtcChange(entry.key, fd.field, v)}
+                          min={fd.min}
+                          max={fd.max}
+                          style={{ flex: 1 }}
+                          size="small"
+                        />
+                      </div>
+                    ))}
+                  </Space>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+          <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
+            修改时钟可修复电池耗尽导致的树果不生长、潮汐洞穴不变化等问题。修改后建议在游戏中等待一天以触发时钟同步。
+          </Text>
+        </div>
+      )}
 
-      {/* 保存按钮 */}
+      {/* ── O-Power 编辑器 ── */}
+      {hasOPowers && oPower && (
+        <div>
+          {hasRtc && <Divider style={{ margin: '8px 0 20px' }} />}
+
+          <Title level={5} style={{ marginBottom: 12 }}>
+            <ThunderboltOutlined style={{ marginRight: 6 }} />
+            O-Power
+          </Title>
+
+          {/* Top toolbar: Points + Enable + FullRecovery */}
+          <Card size="small" style={{ marginBottom: 16 }}>
+            <Row gutter={[24, 8]} align="middle">
+              <Col>
+                <Space>
+                  <Text type="secondary">能量点数</Text>
+                  <InputNumber
+                    value={oPower.points}
+                    onChange={v => handleOPowerTopChange('points', v ?? 0)}
+                    min={0} max={255} size="small" style={{ width: 80 }}
+                  />
+                </Space>
+              </Col>
+              <Col>
+                <Checkbox
+                  checked={oPower.enableUnlocked}
+                  onChange={e => handleOPowerTopChange('enableUnlocked', e.target.checked)}
+                >
+                  已启用
+                </Checkbox>
+              </Col>
+              <Col>
+                <Checkbox
+                  checked={oPower.fullRecoveryUnlocked}
+                  onChange={e => handleOPowerTopChange('fullRecoveryUnlocked', e.target.checked)}
+                >
+                  完全恢复已解锁
+                </Checkbox>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* Field O-Powers */}
+          <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>
+            <Tag color="green" style={{ marginRight: 6 }}>Field</Tag>
+            野外人专用
+          </Text>
+          <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
+            {fieldEntries.map(renderOPowerCard)}
+          </Row>
+
+          {/* Battle O-Powers */}
+          <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>
+            <Tag color="red" style={{ marginRight: 6 }}>Battle</Tag>
+            对战用
+          </Text>
+          <Row gutter={[12, 12]}>
+            {battleEntries.map(renderOPowerCard)}
+          </Row>
+
+          <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
+            O-Power 是 Gen6 (X/Y/ΩR/αS) 的特色系统。修改等级和解锁标志后请在游戏中验证效果。
+          </Text>
+        </div>
+      )}
+
+      {/* ── 保存按钮 ── */}
       <div style={{
         position: 'sticky', bottom: 0, background: 'var(--bg-surface, #fff)',
         padding: '12px 0', borderTop: '1px solid var(--border-color, #f0f0f0)',
@@ -155,7 +330,7 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
           onClick={handleSave}
           loading={saving}
         >
-          保存时钟设置
+          保存专用工具设置
         </Button>
       </div>
     </div>

@@ -439,13 +439,13 @@ const SaveEditor: React.FC = () => {
       { key: 'trainer', label: '👤 训练家' },
       { key: 'pokedex', label: '📖 图鉴' },
     ];
-    if (saveData?.generation === 3) {
+    if (saveData?.generation === 3 || saveData?.generation === 6) {
       items.push({ key: 'gen-tools', label: '🔧 专用工具' });
     }
     return items;
   }, [saveData?.generation]);
 
-  const visibleActiveTab = activeTab === 'gen-tools' && saveData?.generation !== 3
+  const visibleActiveTab = activeTab === 'gen-tools' && saveData?.generation !== 3 && saveData?.generation !== 6
     ? 'boxes'
     : activeTab;
 

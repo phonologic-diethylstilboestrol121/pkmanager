@@ -437,6 +437,7 @@ export const saveFileApi = {
 
 export interface GenToolsCapability {
   hasRtc: boolean;
+  hasOPowers: boolean;
 }
 
 export interface Rtc3EntryDto {
@@ -448,9 +449,32 @@ export interface Rtc3EntryDto {
   second: number;
 }
 
+export interface OPowerTypeEntryDto {
+  key: string;           // "hatching", "spAttack" ...
+  name: string;          // "孵化", "特攻" ...
+  category: string;      // "field" | "battle"
+  level1: number;        // 0-3
+  level2: number;        // 0-3
+  level1Unlocked: boolean;
+  level2Unlocked: boolean;
+  level3Unlocked: boolean;
+  hasLevelS: boolean;
+  levelSUnlocked: boolean;
+  hasLevelMax: boolean;
+  levelMaxUnlocked: boolean;
+}
+
+export interface OPowerDto {
+  points: number;
+  enableUnlocked: boolean;
+  fullRecoveryUnlocked: boolean;
+  entries: OPowerTypeEntryDto[];
+}
+
 export interface GenToolsDto {
   capability: GenToolsCapability;
   rtcEntries?: Rtc3EntryDto[];
+  opower?: OPowerDto;
 }
 
 // ── Bag types ─────────────────────────────────────────
