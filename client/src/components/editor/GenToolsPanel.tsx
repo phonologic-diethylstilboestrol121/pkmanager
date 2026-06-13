@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, InputNumber, Button, App, Spin, Alert, Typography, Row, Col, Space, Checkbox, Tag, Divider, Progress } from 'antd';
 import { SaveOutlined, ClockCircleOutlined, ReloadOutlined, ThunderboltOutlined, AimOutlined } from '@ant-design/icons';
 import { saveFileApi, type GenToolsDto, type Rtc3EntryDto, type OPowerTypeEntryDto } from '../../api/saveFile';
@@ -15,24 +15,39 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
   const [error, setError] = useState(false);
   const [saving, setSaving] = useState(false);
   const { message } = App.useApp();
+  const mountedRef = useRef(true);
+  const messageRef = useRef(message);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    messageRef.current = message;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [message]);
 
   const fetchGenTools = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(false);
     try {
       const res = await saveFileApi.getGenTools(saveFileId);
+      if (!mountedRef.current || requestId !== requestIdRef.current) return;
       setGenTools(res.data);
     } catch {
+      if (!mountedRef.current || requestId !== requestIdRef.current) return;
       setError(true);
-      message.error('获取世代工具数据失败');
+      messageRef.current.error('获取世代工具数据失败');
     } finally {
+      if (!mountedRef.current || requestId !== requestIdRef.current) return;
       setLoading(false);
     }
-  }, [saveFileId, message]);
+  }, [saveFileId]);
 
-  if (loading && genTools == null && !error) {
+  useEffect(() => {
     void fetchGenTools();
-  }
+  }, [fetchGenTools]);
 
   // ── RTC helpers ──────────────────────────────────────
 
