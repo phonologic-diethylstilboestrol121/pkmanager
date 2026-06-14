@@ -324,6 +324,7 @@ public class ParseService
             Nature = (byte)pkm.Nature,
             NatureName = GetSafeString(strings.Natures, (int)pkm.Nature, $"Nature {(int)pkm.Nature}"),
             Ability = pkm.Ability,
+            AbilitySlot = PokemonEditService.GetAbilitySlotIndex(pkm),
             AbilityName = GetSafeString(strings.Ability, pkm.Ability, $"Ability {pkm.Ability}"),
             IsShiny = pkm.IsShiny,
             IsEgg = pkm.IsEgg,

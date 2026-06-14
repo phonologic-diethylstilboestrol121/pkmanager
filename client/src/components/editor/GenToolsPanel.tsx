@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Card, InputNumber, Button, App, Spin, Alert, Typography, Row, Col, Space, Checkbox, Tag, Divider, Progress, Statistic } from 'antd';
+import { Card, InputNumber, Button, App, Spin, Alert, Typography, Row, Col, Space, Checkbox, Tag, Divider, Progress, Statistic, List } from 'antd';
 import { SaveOutlined, ClockCircleOutlined, ReloadOutlined, ThunderboltOutlined, AimOutlined, GiftOutlined, HomeOutlined, TrophyOutlined, BugOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { saveFileApi, type GenToolsDto, type Rtc3EntryDto, type OPowerTypeEntryDto } from '../../api/saveFile';
 
@@ -172,14 +172,17 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
   const hasRtc = genTools?.capability.hasRtc ?? false;
   const hasOPowers = genTools?.capability.hasOPowers ?? false;
   const hasZygardeCells = genTools?.capability.hasZygardeCells ?? false;
+  const hasEntreeForest = genTools?.capability.hasEntreeForest ?? false;
+  const hasEntralink = genTools?.capability.hasEntralink ?? false;
+  const hasCGearSkin = genTools?.capability.hasCGearSkin ?? false;
 
-  if (!hasRtc && !hasOPowers && !hasZygardeCells) {
+  if (!hasRtc && !hasOPowers && !hasZygardeCells && !hasEntreeForest && !hasEntralink && !hasCGearSkin) {
     return (
       <div style={{ padding: 24 }}>
         <Alert
           type="info"
           message="当前存档不支持专用工具功能"
-          description="专用工具当前支持：Gen3 红宝石/蓝宝石/绿宝石（RTC 时钟）、Gen6 X/Y/ΩR/αS（O-Power 编辑）和 Gen7 太阳/月亮/究极之日/究极之月（Zygarde Cell 查看）。"
+          description="专用工具当前支持：Gen3 RTC、Gen5 Dream World / Entralink / C-Gear、Gen6 O-Power、Gen7 Zygarde Cell 及部分只读特色系统。"
           showIcon
         />
       </div>
@@ -452,6 +455,111 @@ const GenToolsPanel: React.FC<Props> = ({ saveFileId }) => {
               Zygarde Cell 是 Gen7 (太阳/月亮/究极之日/究极之月) 的特色系统，共 {zygarde.totalCount} 个。
             </Text>
           </Card>
+        </div>
+      )}
+
+      {/* ── Entree Forest (Gen5) — 只读 ── */}
+      {genTools?.entreeForest && (
+        <div>
+          {(hasRtc || hasOPowers || hasZygardeCells) && <Divider style={{ margin: '8px 0 20px' }} />}
+          <Title level={5} style={{ marginBottom: 12 }}>Entree Forest</Title>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={8}>
+              <Card size="small">
+                <Statistic title="占用槽位" value={genTools.entreeForest.occupiedSlots} suffix={`/ ${genTools.entreeForest.totalSlots}`} />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8}>
+              <Card size="small">
+                <Statistic title="第九区域" value={genTools.entreeForest.unlock9thArea ? '已解锁' : '未解锁'} />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8}>
+              <Card size="small">
+                <Statistic title="38 区域值" value={genTools.entreeForest.unlock38Areas} />
+              </Card>
+            </Col>
+          </Row>
+          <Card size="small" title="DW 宝可梦槽位" style={{ marginTop: 16 }}>
+            <List
+              size="small"
+              dataSource={genTools.entreeForest.slots.filter(slot => slot.isOccupied)}
+              renderItem={(slot) => (
+                <List.Item>
+                  <Space wrap>
+                    <Text strong>槽位 #{slot.index + 1}</Text>
+                    <Tag>Species {slot.species}</Tag>
+                    <Tag>Move {slot.move}</Tag>
+                    <Tag>Gender {slot.gender}</Tag>
+                    <Tag>Form {slot.form}</Tag>
+                    <Tag>Area {slot.area}</Tag>
+                    {slot.isInvisible && <Tag color="default">Invisible</Tag>}
+                  </Space>
+                </List.Item>
+              )}
+            />
+          </Card>
+        </div>
+      )}
+
+      {/* ── Entralink (Gen5) — 只读 ── */}
+      {genTools?.entralink && (
+        <div>
+          {(hasRtc || hasOPowers || hasZygardeCells || !!genTools?.entreeForest) && <Divider style={{ margin: '8px 0 20px' }} />}
+          <Title level={5} style={{ marginBottom: 12 }}>Entralink</Title>
+          <Row gutter={[16, 16]}>
+            <Col xs={12} sm={8}>
+              <Card size="small">
+                <Statistic title="White Forest Lv." value={genTools.entralink.whiteForestLevel} />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8}>
+              <Card size="small">
+                <Statistic title="Black City Lv." value={genTools.entralink.blackCityLevel} />
+              </Card>
+            </Col>
+            {genTools.entralink.missionsComplete != null && (
+              <Col xs={24} sm={8}>
+                <Card size="small">
+                  <Statistic title="Missions Complete" value={genTools.entralink.missionsComplete} />
+                </Card>
+              </Col>
+            )}
+          </Row>
+          {(genTools.entralink.passPower1 != null || genTools.entralink.passPower2 != null || genTools.entralink.passPower3 != null) && (
+            <Card size="small" title="Pass Powers" style={{ marginTop: 16 }}>
+              <Space wrap>
+                {genTools.entralink.passPower1 != null && <Tag>PassPower1: {genTools.entralink.passPower1}</Tag>}
+                {genTools.entralink.passPower2 != null && <Tag>PassPower2: {genTools.entralink.passPower2}</Tag>}
+                {genTools.entralink.passPower3 != null && <Tag>PassPower3: {genTools.entralink.passPower3}</Tag>}
+              </Space>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ── C-Gear Skin (Gen5) — 只读 ── */}
+      {genTools?.cGearSkin && (
+        <div>
+          {(hasRtc || hasOPowers || hasZygardeCells || !!genTools?.entreeForest || !!genTools?.entralink) && <Divider style={{ margin: '8px 0 20px' }} />}
+          <Title level={5} style={{ marginBottom: 12 }}>C-Gear Skin</Title>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={8}>
+              <Card size="small">
+                <Statistic title="皮肤状态" value={genTools.cGearSkin.hasCGearSkin ? '已安装' : '未安装'} />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8}>
+              <Card size="small">
+                <Statistic title="Checksum" value={genTools.cGearSkin.checksum} />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8}>
+              <Card size="small">
+                <Statistic title="数据大小" value={genTools.cGearSkin.dataSize} suffix="bytes" />
+              </Card>
+            </Col>
+          </Row>
         </div>
       )}
 

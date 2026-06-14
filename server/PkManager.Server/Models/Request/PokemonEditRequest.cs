@@ -11,6 +11,7 @@ public class PokemonEditRequest
     public byte? Gender { get; set; }
     public byte? Nature { get; set; }
     public int? Ability { get; set; }
+    public int? AbilitySlot { get; set; }
     public bool? IsShiny { get; set; }
     public bool? IsEgg { get; set; }
     public int? Level { get; set; }

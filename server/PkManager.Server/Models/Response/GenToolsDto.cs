@@ -10,6 +10,9 @@ public class GenToolsCapability
     public bool HasRtc { get; set; }
     public bool HasOPowers { get; set; }
     public bool HasZygardeCells { get; set; }
+    public bool HasEntreeForest { get; set; }
+    public bool HasEntralink { get; set; }
+    public bool HasCGearSkin { get; set; }
     public bool HasHoloCaster { get; set; }
     public bool HasFesta { get; set; }
     public bool HasPelago { get; set; }
@@ -207,6 +210,56 @@ public class RotomDexDto
 }
 
 /// <summary>
+/// 单个 Entree Forest 槽位（Gen5 Dream World）— 只读。
+/// </summary>
+public class EntreeSlotDto
+{
+    public int Index { get; set; }
+    public int Species { get; set; }
+    public int Move { get; set; }
+    public int Gender { get; set; }
+    public int Form { get; set; }
+    public bool IsOccupied { get; set; }
+    public bool IsInvisible { get; set; }
+    public int Area { get; set; }
+}
+
+/// <summary>
+/// Entree Forest 概览（Gen5 BW/B2W2）— 只读。
+/// </summary>
+public class EntreeForestDto
+{
+    public int TotalSlots { get; set; }
+    public int OccupiedSlots { get; set; }
+    public bool Unlock9thArea { get; set; }
+    public int Unlock38Areas { get; set; }
+    public List<EntreeSlotDto> Slots { get; set; } = [];
+}
+
+/// <summary>
+/// Entralink 概览（Gen5 BW/B2W2）— 只读。
+/// </summary>
+public class EntralinkDto
+{
+    public int WhiteForestLevel { get; set; }
+    public int BlackCityLevel { get; set; }
+    public int? MissionsComplete { get; set; }
+    public int? PassPower1 { get; set; }
+    public int? PassPower2 { get; set; }
+    public int? PassPower3 { get; set; }
+}
+
+/// <summary>
+/// C-Gear Skin 状态（Gen5 BW/B2W2）— 只读。
+/// </summary>
+public class CGearSkinDto
+{
+    public bool HasCGearSkin { get; set; }
+    public int Checksum { get; set; }
+    public int DataSize { get; set; }
+}
+
+/// <summary>
 /// 世代专属工具统一响应 DTO。
 /// </summary>
 public class GenToolsDto
@@ -221,6 +274,15 @@ public class GenToolsDto
 
     /// <summary>Zygarde Cell 收集数据（Gen7 SM/USUM 非 null，其他存档为 null）</summary>
     public ZygardeDto? Zygarde { get; set; }
+
+    /// <summary>Entree Forest 数据（Gen5 BW/B2W2 非 null）— 只读</summary>
+    public EntreeForestDto? EntreeForest { get; set; }
+
+    /// <summary>Entralink 数据（Gen5 BW/B2W2 非 null）— 只读</summary>
+    public EntralinkDto? Entralink { get; set; }
+
+    /// <summary>C-Gear Skin 数据（Gen5 BW/B2W2 非 null）— 只读</summary>
+    public CGearSkinDto? CGearSkin { get; set; }
 
     /// <summary>Holo Caster 数据（Gen6 XY/ORAS 非 null）— 只读</summary>
     public HoloCasterDto? HoloCaster { get; set; }

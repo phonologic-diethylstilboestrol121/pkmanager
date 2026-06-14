@@ -94,7 +94,7 @@ public class LegalizationService
                 var slot = MapAbilityIdToSlot(set.Ability, pk.PersonalInfo);
                 if (slot == null)
                     return (null, $"特性 #{set.Ability} 不适用于该物种", null);
-                pk.AbilityNumber = slot.Value;
+                PokemonEditService.ApplyAbilitySelection(pk, set.Ability, slot.Value);
             }
         }
         catch (Exception ex)
@@ -391,7 +391,7 @@ public class LegalizationService
             {
                 var ap = enc.Ability;
                 if (ap.IsSingleValue(out int slotIndex))
-                    pkm.AbilityNumber = slotIndex;
+                    PokemonEditService.ApplyAbilitySelection(pkm, null, slotIndex);
                 result.AppliedFixes.Add("FixAbility");
             }
             catch { result.FailedFixes.Add("FixAbility"); }
@@ -575,7 +575,7 @@ public class LegalizationService
         {
             var slot = MapAbilityIdToSlot(set.Ability, pk.PersonalInfo);
             if (slot.HasValue)
-                pk.AbilityNumber = slot.Value;
+                PokemonEditService.ApplyAbilitySelection(pk, set.Ability, slot.Value);
         }
 
         // Nickname

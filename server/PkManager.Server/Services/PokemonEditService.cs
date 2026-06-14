@@ -1,6 +1,7 @@
 using PKHeX.Core;
 using PkManager.Server.Models.Request;
 using PkManager.Server.Models.Response;
+using System.Reflection;
 
 namespace PkManager.Server.Services;
 
@@ -9,6 +10,9 @@ namespace PkManager.Server.Services;
 /// </summary>
 public class PokemonEditService
 {
+    private static readonly MethodInfo? PK5CalculateAbilityIndexMethod =
+        typeof(PK5).GetMethod("CalculateAbilityIndex", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
     private readonly ParseService _parseService;
 
     public PokemonEditService(ParseService parseService)
@@ -84,8 +88,8 @@ public class PokemonEditService
             pkm.SetNature(requestedNature);
         }
 
-        if (request.Ability.HasValue)
-            pkm.Ability = request.Ability.Value;
+        if (request.Ability.HasValue || request.AbilitySlot.HasValue)
+            ApplyAbilitySelection(pkm, request.Ability, request.AbilitySlot);
 
         if (request.IsShiny.HasValue)
         {
@@ -455,6 +459,80 @@ public class PokemonEditService
             if (request.Spirit.HasValue) pb7.Spirit = (byte)Math.Clamp((int)request.Spirit.Value, 0, 255);
             if (request.Mood.HasValue) pb7.Mood = (byte)Math.Clamp((int)request.Mood.Value, 0, 255);
         }
+    }
+
+    public static int GetAbilitySlotIndex(PKM pkm)
+    {
+        if (pkm is PK5 pk5Calculated && PK5CalculateAbilityIndexMethod != null)
+            return (int)(PK5CalculateAbilityIndexMethod.Invoke(pk5Calculated, null) ?? 0);
+
+        if (pkm is PK5 pk5 && pk5.HiddenAbility)
+            return 2;
+
+        var personalInfo = pkm.PersonalInfo;
+        if (personalInfo == null)
+            return 0;
+
+        var currentAbility = pkm.Ability;
+        for (int i = 0; i < personalInfo.AbilityCount; i++)
+        {
+            if (personalInfo.GetAbilityAtIndex(i) != currentAbility)
+                continue;
+
+            return i;
+        }
+
+        return 0;
+    }
+
+    public static void ApplyAbilitySelection(PKM pkm, int? abilityId, int? requestedSlot)
+    {
+        var personalInfo = pkm.PersonalInfo;
+        if (personalInfo == null)
+            return;
+
+        var slot = requestedSlot;
+        if (slot is < 0 or > 2)
+            slot = null;
+
+        if (abilityId.HasValue)
+        {
+            if (slot is >= 0 && slot < personalInfo.AbilityCount &&
+                personalInfo.GetAbilityAtIndex(slot.Value) == abilityId.Value)
+            {
+                // Requested slot is already coherent with this ability ID.
+            }
+            else
+            {
+                var mappedSlot = personalInfo.GetIndexOfAbility(abilityId.Value);
+                if (mappedSlot < 0)
+                    return;
+                slot = mappedSlot;
+            }
+        }
+
+        if (!slot.HasValue)
+            return;
+
+        var index = slot.Value;
+        if (index < 0 || index >= personalInfo.AbilityCount)
+            return;
+
+        if (pkm is PK5 pk5)
+        {
+            if (index == 2)
+            {
+                pk5.RefreshAbility(index);
+                return;
+            }
+
+            pk5.HiddenAbility = false;
+        }
+
+        if (pkm.Format <= 5 && index > 0 && index < 2)
+            pkm.SetAbilityIndex(index);
+
+        pkm.RefreshAbility(index);
     }
 
     /// <summary>

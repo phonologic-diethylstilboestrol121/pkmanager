@@ -3,6 +3,7 @@ import apiClient from './axios';
 export interface ResourceItem {
   id: number;
   name: string;
+  slot?: number;
 }
 
 export interface SpeciesExperienceInfo {

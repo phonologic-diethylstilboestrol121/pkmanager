@@ -63,6 +63,7 @@ export function buildEditRequest(pokemon: PokemonDto): Record<string, unknown> {
     level: pokemon.level,
     nature: pokemon.nature,
     ability: pokemon.ability,
+    abilitySlot: pokemon.abilitySlot,
     heldItem: pokemon.heldItem,
     ball: pokemon.ball,
     isShiny: pokemon.isShiny,

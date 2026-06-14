@@ -56,6 +56,7 @@ public class PokemonDto
     public int Nature { get; set; }
     public string NatureName { get; set; } = string.Empty;
     public int Ability { get; set; }
+    public int? AbilitySlot { get; set; }
     public string AbilityName { get; set; } = string.Empty;
     public bool IsShiny { get; set; }
     public bool IsEgg { get; set; }

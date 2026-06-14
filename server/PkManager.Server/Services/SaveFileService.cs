@@ -849,6 +849,7 @@ public class SaveFileService
         var (sf, sav) = await LoadSave(saveFileId, userId);
         var gameVersion = sf.GameVersion ?? (int)sav.Version;
         var generation = sf.Generation;
+        var zukan4 = sav is SAV4 s4 ? s4.Dex : null;
 
         var (visibleMax, isSupported, reason) = GetDexVisibility(generation, gameVersion);
 
@@ -861,6 +862,10 @@ public class SaveFileService
                 Species = i,
                 Seen = sav.GetSeen(i),
                 Caught = sav.GetCaught(i),
+                SeenGender = zukan4 != null ? GetSeenGenderState(zukan4, i) : null,
+                DisplayFormValues = zukan4 != null ? GetDisplayFormValues(zukan4, i) : null,
+                SpindaPID = zukan4 != null && i == 327 ? zukan4.SpindaPID : null,
+                LanguageFlags = zukan4 != null && sav is SAV4HGSS ? GetLanguageFlags(zukan4, i) : null,
             });
         }
 
@@ -892,6 +897,7 @@ public class SaveFileService
 
         var (sf, sav) = await LoadSave(saveFileId, userId);
         var maxSpecies = sav.MaxSpeciesID;
+        var zukan4 = sav is SAV4 s4 ? s4.Dex : null;
 
         if (dto.Entries == null || dto.Entries.Count == 0)
             throw new BusinessException("图鉴条目列表不能为空", 400);
@@ -912,6 +918,30 @@ public class SaveFileService
 
             sav.SetSeen(species, entry.Seen);
             sav.SetCaught(species, entry.Caught);
+
+            if (zukan4 == null)
+                continue;
+
+            if (!entry.Seen)
+            {
+                zukan4.ClearSeen(species);
+                zukan4.ClearDexEntryAll(species);
+                if (species == 327)
+                    zukan4.SpindaPID = 0;
+                continue;
+            }
+
+            if (entry.SeenGender.HasValue)
+                ApplySeenGender(zukan4, species, entry.SeenGender.Value);
+
+            if (entry.DisplayFormValues != null)
+                zukan4.SetForms(species, entry.DisplayFormValues.Select(v => (byte)Math.Clamp(v, 0, 255)).ToArray());
+
+            if (species == 327 && entry.SpindaPID.HasValue)
+                zukan4.SpindaPID = entry.SpindaPID.Value;
+
+            if (sav is SAV4HGSS && entry.LanguageFlags.HasValue)
+                ApplyLanguageFlags(zukan4, species, entry.LanguageFlags.Value);
         }
 
         await WriteBackSave(sf, userId, sav);
@@ -934,18 +964,25 @@ public class SaveFileService
 
         var (sf, sav) = await LoadSave(saveFileId, userId);
         var max = sav.MaxSpeciesID;
+        var zukan4 = sav is SAV4 s4 ? s4.Dex : null;
 
         switch (normalized.ToLowerInvariant())
         {
             case "seenall":
                 for (ushort i = 1; i <= max; i++)
+                {
                     sav.SetSeen(i, true);
+                    if (zukan4 != null)
+                        zukan4.SetSeen(i, true);
+                }
                 break;
             case "caughtall":
                 for (ushort i = 1; i <= max; i++)
                 {
                     sav.SetSeen(i, true);
                     sav.SetCaught(i, true);
+                    if (zukan4 != null)
+                        zukan4.SetDexEntryAll(i, shinyToo: false);
                 }
                 break;
             case "clearall":
@@ -953,12 +990,84 @@ public class SaveFileService
                 {
                     sav.SetSeen(i, false);
                     sav.SetCaught(i, false);
+                    zukan4?.ClearDexEntryAll(i);
                 }
+                if (zukan4 != null)
+                    zukan4.SpindaPID = 0;
                 break;
         }
 
         await WriteBackSave(sf, userId, sav);
         return await GetPokedex(saveFileId, userId);
+    }
+
+    private static int? GetSeenGenderState(Zukan4 zukan, ushort species)
+    {
+        if (!zukan.GetSeen(species))
+            return 0;
+
+        var first = zukan.GetSeenGenderFirst(species);
+        var second = zukan.GetSeenGenderSecond(species);
+        if (zukan.GetSeenSingleGender(species))
+            return first == 1 ? 2 : 1;
+
+        return 3;
+    }
+
+    private static int[]? GetDisplayFormValues(Zukan4 zukan, ushort species)
+    {
+        var values = zukan.GetForms(species);
+        return values.Length == 0 ? null : values.Select(v => (int)v).ToArray();
+    }
+
+    private static readonly LanguageID[] Gen4DexLanguages =
+    [
+        LanguageID.Japanese,
+        LanguageID.English,
+        LanguageID.French,
+        LanguageID.Italian,
+        LanguageID.German,
+        LanguageID.Spanish,
+    ];
+
+    private static int GetLanguageFlags(Zukan4 zukan, ushort species)
+    {
+        int flags = 0;
+        for (int i = 0; i < Gen4DexLanguages.Length; i++)
+        {
+            if (zukan.GetLanguageBitIndex(species, i))
+                flags |= 1 << i;
+        }
+        return flags;
+    }
+
+    private static void ApplyLanguageFlags(Zukan4 zukan, ushort species, int flags)
+    {
+        for (int i = 0; i < Gen4DexLanguages.Length; i++)
+        {
+            var enabled = (flags & (1 << i)) != 0;
+            zukan.SetLanguage(species, (int)Gen4DexLanguages[i], enabled);
+        }
+    }
+
+    private static void ApplySeenGender(Zukan4 zukan, ushort species, int seenGender)
+    {
+        switch (seenGender)
+        {
+            case <= 0:
+                zukan.SetSeenGenderNeither(species);
+                break;
+            case 1:
+                zukan.SetSeenGender(species, 0);
+                break;
+            case 2:
+                zukan.SetSeenGender(species, 1);
+                break;
+            default:
+                zukan.SetSeenGenderFirst(species, 0);
+                zukan.SetSeenGenderSecond(species, 1);
+                break;
+        }
     }
 
     // ═══ 世代专属工具（Gen Tools）════════════════════════
@@ -1089,6 +1198,58 @@ public class SaveFileService
                 CollectedCount = collectedCount,
                 TotalCount = totalCount,
                 Cells = cells,
+            };
+        }
+
+        // ── Dream World / Entralink / C-Gear (Gen5 BW/B2W2) — 只读 ──
+        var entreeForest = PkhexSaveAdapters.GetEntreeForest(sav);
+        cap.HasEntreeForest = entreeForest != null;
+        if (entreeForest != null)
+        {
+            dto.EntreeForest = new EntreeForestDto
+            {
+                TotalSlots = entreeForest.Value.totalSlots,
+                OccupiedSlots = entreeForest.Value.occupiedSlots,
+                Unlock9thArea = entreeForest.Value.unlock9thArea,
+                Unlock38Areas = entreeForest.Value.unlock38Areas,
+                Slots = entreeForest.Value.slots.Select(slot => new EntreeSlotDto
+                {
+                    Index = slot.index,
+                    Species = slot.species,
+                    Move = slot.move,
+                    Gender = slot.gender,
+                    Form = slot.form,
+                    IsOccupied = slot.species != 0,
+                    IsInvisible = slot.invisible,
+                    Area = slot.area,
+                }).ToList(),
+            };
+        }
+
+        var entralink = PkhexSaveAdapters.GetEntralink(sav);
+        cap.HasEntralink = entralink != null;
+        if (entralink != null)
+        {
+            dto.Entralink = new EntralinkDto
+            {
+                WhiteForestLevel = entralink.Value.whiteForestLevel,
+                BlackCityLevel = entralink.Value.blackCityLevel,
+                MissionsComplete = entralink.Value.missionsComplete,
+                PassPower1 = entralink.Value.passPower1,
+                PassPower2 = entralink.Value.passPower2,
+                PassPower3 = entralink.Value.passPower3,
+            };
+        }
+
+        var cgearSkin = PkhexSaveAdapters.GetSkinInfo(sav);
+        cap.HasCGearSkin = cgearSkin != null;
+        if (cgearSkin != null)
+        {
+            dto.CGearSkin = new CGearSkinDto
+            {
+                HasCGearSkin = cgearSkin.Value.hasCGearSkin,
+                Checksum = cgearSkin.Value.checksum,
+                DataSize = cgearSkin.Value.dataSize,
             };
         }
 

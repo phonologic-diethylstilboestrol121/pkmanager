@@ -42,6 +42,10 @@ public class PokedexEntryDto
     public ushort Species { get; set; }
     public bool Seen { get; set; }
     public bool Caught { get; set; }
+    public int? SeenGender { get; set; }
+    public int[]? DisplayFormValues { get; set; }
+    public uint? SpindaPID { get; set; }
+    public int? LanguageFlags { get; set; }
 }
 
 /// <summary>

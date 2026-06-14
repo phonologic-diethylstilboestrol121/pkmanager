@@ -312,7 +312,7 @@ public class ResourceController : ControllerBase
                 var label = hasDuplicates
                     ? $"{baseName}{slotLabels[i]}"
                     : i >= 2 ? $"{baseName}{slotLabels[i]}" : baseName;
-                items.Add(new ResourceItem { Id = abiId, Name = label });
+                items.Add(new ResourceItem { Id = abiId, Name = label, Slot = i });
             }
 
             return Ok(ApiResponse<List<ResourceItem>>.Ok(items));
@@ -509,4 +509,5 @@ public class ResourceItem
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public int? Slot { get; set; }
 }

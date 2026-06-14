@@ -40,6 +40,7 @@ export interface PokemonDto {
   nature: number;
   natureName: string;
   ability: number;
+  abilitySlot?: number;
   abilityName: string;
   isShiny: boolean;
   isEgg: boolean;
@@ -452,6 +453,9 @@ export interface GenToolsCapability {
   hasRtc: boolean;
   hasOPowers: boolean;
   hasZygardeCells: boolean;
+  hasEntreeForest: boolean;
+  hasEntralink: boolean;
+  hasCGearSkin: boolean;
   hasHoloCaster: boolean;
   hasFesta: boolean;
   hasPelago: boolean;
@@ -501,6 +505,40 @@ export interface ZygardeDto {
   cells: ZygardeCellDto[];
 }
 
+export interface EntreeSlotDto {
+  index: number;
+  species: number;
+  move: number;
+  gender: number;
+  form: number;
+  isOccupied: boolean;
+  isInvisible: boolean;
+  area: number;
+}
+
+export interface EntreeForestDto {
+  totalSlots: number;
+  occupiedSlots: number;
+  unlock9thArea: boolean;
+  unlock38Areas: number;
+  slots: EntreeSlotDto[];
+}
+
+export interface EntralinkDto {
+  whiteForestLevel: number;
+  blackCityLevel: number;
+  missionsComplete?: number | null;
+  passPower1?: number | null;
+  passPower2?: number | null;
+  passPower3?: number | null;
+}
+
+export interface CGearSkinDto {
+  hasCGearSkin: boolean;
+  checksum: number;
+  dataSize: number;
+}
+
 // ── I.5 Gen6/Gen7 只读字段 ────────────────────────────
 
 export interface HoloCasterDto {
@@ -544,6 +582,9 @@ export interface GenToolsDto {
   rtcEntries?: Rtc3EntryDto[];
   opower?: OPowerDto;
   zygarde?: ZygardeDto;
+  entreeForest?: EntreeForestDto;
+  entralink?: EntralinkDto;
+  cGearSkin?: CGearSkinDto;
   holoCaster?: HoloCasterDto;
   festa?: FestaDto;
   pelago?: PelagoDto;
@@ -627,6 +668,10 @@ export interface PokedexEntryDto {
   species: number;
   seen: boolean;
   caught: boolean;
+  seenGender?: number | null;
+  displayFormValues?: number[] | null;
+  spindaPID?: number | null;
+  languageFlags?: number | null;
 }
 
 export interface PokedexDto {

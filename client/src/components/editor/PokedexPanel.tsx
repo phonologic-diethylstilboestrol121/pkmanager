@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Progress, Button, Checkbox, Input, App, Spin, Typography,
-  Pagination, Popconfirm, Space, Alert,
+  Pagination, Popconfirm, Space, Alert, Tag, Popover, Select, InputNumber,
 } from 'antd';
 import { SearchOutlined, SaveOutlined, EyeOutlined, AimOutlined, ClearOutlined } from '@ant-design/icons';
 import { saveFileApi, type PokedexDto, type PokedexEntryDto } from '../../api/saveFile';
@@ -9,6 +9,37 @@ import { useResourceStore } from '../../stores/resourceStore';
 
 const { Text } = Typography;
 const PAGE_SIZE = 100;
+const GEN4_LANGUAGE_LABELS = ['日', '英', '法', '意', '德', '西'];
+const GENDER_OPTIONS = [
+  { value: 0, label: '未记录' },
+  { value: 1, label: '仅♂' },
+  { value: 2, label: '仅♀' },
+  { value: 3, label: '♂♀' },
+];
+
+const getGenderTag = (seenGender?: number | null) => {
+  switch (seenGender) {
+    case 1: return <Tag color="blue">♂</Tag>;
+    case 2: return <Tag color="magenta">♀</Tag>;
+    case 3: return <Tag color="purple">♂♀</Tag>;
+    default: return null;
+  }
+};
+
+const getFormLabel = (species: number, form: number) => {
+  if (species === 201) {
+    if (form < 26) return String.fromCharCode(65 + form);
+    return form === 26 ? '!' : '?';
+  }
+
+  const labels: Record<number, string[]> = {
+    412: ['Plant', 'Sandy', 'Trash'],
+    413: ['Plant', 'Sandy', 'Trash'],
+    422: ['West', 'East'],
+    423: ['West', 'East'],
+  };
+  return labels[species]?.[form] ?? `F${form}`;
+};
 
 interface Props {
   saveFileId: string;
@@ -18,12 +49,57 @@ interface Props {
 const DexCell: React.FC<{
   species: number;
   name: string;
+  generation: number;
   seen: boolean;
   caught: boolean;
+  seenGender?: number | null;
+  displayFormValues?: number[] | null;
+  languageFlags?: number | null;
+  spindaPID?: number | null;
   onSeenChange: (v: boolean) => void;
   onCaughtChange: (v: boolean) => void;
-}> = ({ species, name, seen, caught, onSeenChange, onCaughtChange }) => {
+  onEntryChange: (patch: Partial<PokedexEntryDto>) => void;
+}> = ({
+  species,
+  name,
+  generation,
+  seen,
+  caught,
+  seenGender,
+  displayFormValues,
+  languageFlags,
+  spindaPID,
+  onSeenChange,
+  onCaughtChange,
+  onEntryChange,
+}) => {
   const dexNum = String(species).padStart(3, '0');
+  const genderTag = getGenderTag(seenGender);
+  const canEditGen4Extras = generation === 4;
+  const displayValues = displayFormValues ?? [];
+  const effectiveLanguageFlags = languageFlags ?? 0;
+  const formEditor = canEditGen4Extras && displayValues.length > 0 ? (
+    <Space direction="vertical" size={8} style={{ width: 220 }}>
+      {displayValues.map((value, index) => (
+        <div key={index} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+          <Text style={{ fontSize: 12 }}>{getFormLabel(species, index)}</Text>
+          <InputNumber
+            size="small"
+            min={0}
+            max={255}
+            value={value}
+            onChange={(next) => {
+              const values = [...displayValues];
+              values[index] = next ?? 0;
+              onEntryChange({ displayFormValues: values });
+            }}
+            style={{ width: 88 }}
+          />
+        </div>
+      ))}
+    </Space>
+  ) : null;
+
   return (
     <div style={{
       border: '1px solid #f0f0f0',
@@ -37,6 +113,7 @@ const DexCell: React.FC<{
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text type="secondary" style={{ fontSize: 10, fontFamily: 'monospace' }}>#{dexNum}</Text>
+        {genderTag}
       </div>
       <Text style={{ fontSize: 12, lineHeight: 1.3, minHeight: 16 }}>{name}</Text>
       <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
@@ -56,6 +133,60 @@ const DexCell: React.FC<{
           <Text style={{ fontSize: 11 }}>捕</Text>
         </Checkbox>
       </div>
+      {canEditGen4Extras && (
+        <Space size={[4, 4]} wrap>
+          <Select
+            size="small"
+            value={seenGender ?? 0}
+            style={{ width: 92 }}
+            options={GENDER_OPTIONS}
+            onChange={(value) => onEntryChange({ seenGender: value })}
+          />
+          {formEditor && (
+            <Popover content={formEditor} title="形态跟踪" trigger="click">
+              <Button size="small">形态</Button>
+            </Popover>
+          )}
+          {species === 327 && (
+            <InputNumber
+              size="small"
+              min={0}
+              max={0xFFFFFFFF}
+              value={spindaPID ?? 0}
+              style={{ width: 110 }}
+              onChange={(value) => onEntryChange({ spindaPID: value ?? 0 })}
+            />
+          )}
+          {languageFlags != null && (
+            <Popover
+              trigger="click"
+              title="语言条目"
+              content={
+                <Space direction="vertical" size={4}>
+                  {GEN4_LANGUAGE_LABELS.map((label, index) => {
+                    const checked = (effectiveLanguageFlags & (1 << index)) !== 0;
+                    return (
+                      <Checkbox
+                        key={label}
+                        checked={checked}
+                        onChange={(e) => {
+                          const mask = 1 << index;
+                          const next = e.target.checked ? (effectiveLanguageFlags | mask) : (effectiveLanguageFlags & ~mask);
+                          onEntryChange({ languageFlags: next });
+                        }}
+                      >
+                        {label}
+                      </Checkbox>
+                    );
+                  })}
+                </Space>
+              }
+            >
+              <Button size="small">语言</Button>
+            </Popover>
+          )}
+        </Space>
+      )}
     </div>
   );
 };
@@ -185,6 +316,17 @@ const PokedexPanel: React.FC<Props> = ({ saveFileId }) => {
       const updated: PokedexEntryDto = { ...base, caught };
       if (caught) updated.seen = true; // caught ⇒ seen
       next.set(species, updated);
+      return next;
+    });
+    setDirty(true);
+  }, [mergedEntries]);
+
+  const handleEntryChange = useCallback((species: number, patch: Partial<PokedexEntryDto>) => {
+    setDirtyEntries(prev => {
+      const next = new Map(prev);
+      const prevEntry = prev.get(species);
+      const base = prevEntry ?? mergedEntries.get(species) ?? { species, seen: false, caught: false };
+      next.set(species, { ...base, ...patch });
       return next;
     });
     setDirty(true);
@@ -328,10 +470,16 @@ const PokedexPanel: React.FC<Props> = ({ saveFileId }) => {
             key={e.species}
             species={e.species}
             name={speciesNameMap.get(e.species) ?? `物种 #${e.species}`}
+            generation={data.generation}
             seen={e.seen}
             caught={e.caught}
+            seenGender={e.seenGender}
+            displayFormValues={e.displayFormValues}
+            languageFlags={e.languageFlags}
+            spindaPID={e.spindaPID}
             onSeenChange={v => handleSeenChange(e.species, v)}
             onCaughtChange={v => handleCaughtChange(e.species, v)}
+            onEntryChange={patch => handleEntryChange(e.species, patch)}
           />
         ))}
       </div>

@@ -77,7 +77,15 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
   }, [pokemon.species, pokemon.form, generation]);
 
   const abilityOptions = (speciesAbilities.length > 0 ? speciesAbilities : abilities)
-    .map((a, i) => ({ value: a.id, label: a.name, key: `${a.id}_${i}` }));
+    .map((a, i) => ({ value: a.id, label: a.name, slot: a.slot, key: `${a.id}_${i}` }));
+  const hiddenAbilityId = abilityOptions.find(option => option.label.includes('(H)'))?.value;
+  const selectedAbilityKey = (() => {
+    if (pokemon.ability <= 0) return 0;
+    const exact = abilityOptions.find(option => option.value === pokemon.ability && option.slot === pokemon.abilitySlot);
+    if (exact) return exact.key;
+    const fallback = abilityOptions.find(option => option.value === pokemon.ability);
+    return fallback?.key ?? pokemon.ability;
+  })();
   const itemOptions = [{ value: 0, label: '无' }, ...items.filter(i => i.id > 0).map(i => ({ value: i.id, label: i.name }))];
   const ballOptions = balls.map(b => ({ value: b.id, label: b.name }));
 
@@ -199,13 +207,50 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
         }
         <div>
           <div style={labelStyle}>特性</div>
-          <Select size="small" showSearch value={pokemon.ability} style={{ width: 180 }}
-            onChange={(v) => set('ability', v)} disabled={isGen12}>
-            <Select.Option value={0} key="abi_0">— (默认)</Select.Option>
-            {abilityOptions.map((a) => (
-              <Select.Option value={a.value} key={`abi_${a.key}`}>{a.label}</Select.Option>
-            ))}
-          </Select>
+          <Space.Compact>
+            <Select size="small" showSearch value={selectedAbilityKey} style={{ width: 180 }}
+              onChange={(key) => {
+                if (key === 0) {
+                  pokemon.ability = 0;
+                  pokemon.abilitySlot = undefined;
+                  ch();
+                  return;
+                }
+                const option = abilityOptions.find(item => item.key === key);
+                if (!option) return;
+                pokemon.ability = option.value;
+                pokemon.abilitySlot = option.slot;
+                ch();
+              }} disabled={isGen12}>
+              <Select.Option value={0} key="abi_0">— (默认)</Select.Option>
+              {abilityOptions.map((a) => (
+                <Select.Option value={a.key} key={`abi_${a.key}`}>{a.label}</Select.Option>
+              ))}
+            </Select>
+            {pokemon.ability > 0 && abilityOptions.some(a => a.slot !== undefined) && (
+              <Select
+                size="small"
+                value={pokemon.abilitySlot}
+                style={{ width: 88 }}
+                onChange={(slot) => {
+                  const option = abilityOptions.find(item => item.slot === slot && item.value === pokemon.ability)
+                    ?? abilityOptions.find(item => item.slot === slot);
+                  if (!option) return;
+                  pokemon.ability = option.value;
+                  pokemon.abilitySlot = option.slot;
+                  ch();
+                }}
+                disabled={isGen12}
+                options={abilityOptions.map(option => ({
+                  value: option.slot,
+                  label: option.slot === 2 ? '梦特' : option.slot === 1 ? '特性2' : '特性1',
+                }))}
+              />
+            )}
+            {hiddenAbilityId != null && pokemon.ability === hiddenAbilityId && (
+              <Tag color="purple">梦特</Tag>
+            )}
+          </Space.Compact>
         </div>
       </Space>
 

@@ -137,6 +137,57 @@ internal static class PkhexSaveAdapters
         _ => null,
     };
 
+    // ═══ Gen5 Dream World / Entralink / C-Gear ══════════
+
+    public static (int totalSlots, int occupiedSlots, bool unlock9thArea, int unlock38Areas, List<(int index, int species, int move, int gender, int form, bool invisible, int area)> slots)? GetEntreeForest(SaveFile sav)
+    {
+        if (sav is not SAV5BW and not SAV5B2W2)
+            return null;
+
+        var forest = sav switch
+        {
+            SAV5BW bw => bw.EntreeForest,
+            SAV5B2W2 b2w2 => b2w2.EntreeForest,
+            _ => null,
+        };
+        if (forest == null)
+            return null;
+
+        forest.StartAccess();
+        try
+        {
+            var slots = new List<(int index, int species, int move, int gender, int form, bool invisible, int area)>(forest.Slots.Length);
+            int occupied = 0;
+            for (int i = 0; i < forest.Slots.Length; i++)
+            {
+                var slot = forest.Slots[i];
+                if (slot.Species != 0)
+                    occupied++;
+                slots.Add((i, slot.Species, slot.Move, slot.Gender, slot.Form, slot.Invisible, (int)slot.Area));
+            }
+
+            return (forest.Slots.Length, occupied, forest.Unlock9thArea, forest.Unlock38Areas, slots);
+        }
+        finally
+        {
+            forest.EndAccess();
+        }
+    }
+
+    public static (int whiteForestLevel, int blackCityLevel, int? missionsComplete, int? passPower1, int? passPower2, int? passPower3)? GetEntralink(SaveFile sav) => sav switch
+    {
+        SAV5BW bw => (bw.Entralink.WhiteForestLevel, bw.Entralink.BlackCityLevel, bw.Entralink.MissionsComplete, null, null, null),
+        SAV5B2W2 b2w2 when b2w2.Entralink is Entralink5B2W2 entralink => (entralink.WhiteForestLevel, entralink.BlackCityLevel, null, entralink.PassPower1, entralink.PassPower2, entralink.PassPower3),
+        _ => null,
+    };
+
+    public static (bool hasCGearSkin, int checksum, int dataSize)? GetSkinInfo(SaveFile sav) => sav switch
+    {
+        SAV5BW bw => (bw.SkinInfo.HasCGearSkin, bw.SkinInfo.CGearSkinChecksum, bw.CGearSkinData.Length),
+        SAV5B2W2 b2w2 => (b2w2.SkinInfo.HasCGearSkin, b2w2.SkinInfo.CGearSkinChecksum, b2w2.CGearSkinData.Length),
+        _ => null,
+    };
+
     // ═══ Gen7 Zygarde Cell ════════════════════════════════
 
     /// <summary>
