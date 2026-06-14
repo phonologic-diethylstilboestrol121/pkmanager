@@ -354,6 +354,47 @@ public class EvolutionService
                 if (method.Argument > 0)
                     pkm.SetMove(0, method.Argument);
                 break;
+
+            case EvolutionType.Trade:
+            case EvolutionType.TradeHeldItem:
+            case EvolutionType.TradeShelmetKarrablast:
+                ApplyTradedState(pkm);
+                break;
+        }
+    }
+
+    private static void ApplyTradedState(PKM pkm)
+    {
+        // 通讯进化在 PKHeX 中主要依赖“已交换”状态。
+        // 这里补足处理者信息，避免进化后被判定为 Untraded。
+        var handledName = pkm.OriginalTrainerName;
+        if (string.IsNullOrWhiteSpace(handledName))
+            handledName = "PKHeX";
+
+        var nameProp = pkm.GetType().GetProperty("HandlingTrainerName");
+        nameProp?.SetValue(pkm, handledName);
+
+        var genderProp = pkm.GetType().GetProperty("HandlingTrainerGender");
+        if (genderProp != null)
+        {
+            var gender = pkm.OriginalTrainerGender;
+            if (gender < 0)
+                gender = 0;
+            genderProp.SetValue(pkm, gender);
+        }
+
+        var languageProp = pkm.GetType().GetProperty("HandlingTrainerLanguage");
+        if (languageProp != null)
+            languageProp.SetValue(pkm, pkm.Language);
+
+        // 保险起见，补满处理者亲密度，避免后续展示或校验出现低值状态。
+        try
+        {
+            pkm.HandlingTrainerFriendship = 255;
+        }
+        catch
+        {
+            // 某些类型/版本可能不支持，忽略即可。
         }
     }
 

@@ -352,7 +352,7 @@ public class PokemonEditService
 
         if (request.HandlingTrainerLanguage.HasValue)
         {
-            var hlProp = pkm.GetType().GetProperty("HandlerLanguage");
+            var hlProp = pkm.GetType().GetProperty("HandlingTrainerLanguage");
             hlProp?.SetValue(pkm, request.HandlingTrainerLanguage.Value);
         }
 

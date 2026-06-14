@@ -764,7 +764,7 @@ public class ParseService
 
     private static int GetHandlerLanguageSafe(PKM pkm)
     {
-        var prop = pkm.GetType().GetProperty("HandlerLanguage");
+        var prop = pkm.GetType().GetProperty("HandlingTrainerLanguage");
         return prop != null ? Convert.ToInt32(prop.GetValue(pkm)) : 0;
     }
 
