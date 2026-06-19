@@ -23,7 +23,7 @@ if (File.Exists(configPath))
         var eq = trimmed.IndexOf('=');
         if (eq <= 0) continue;
         var configKey = trimmed[..eq].Trim();
-        var configValue = trimmed[(eq + 1)..].Trim();
+        var configValue = trimmed[(eq + 1)..].Trim().Trim('"').Trim('\'');
 
         switch (configKey)
         {

@@ -53,7 +53,7 @@ public class SaveFileService
         }
         catch (BusinessException)
         {
-            throw new BusinessException("保存后的存档无法重新解析，已中止写入");
+            throw BusinessException.FromKey("save.saveReparseFailed", 400);
         }
     }
 
@@ -241,7 +241,7 @@ public class SaveFileService
             "pkm_black" => (generation: 5, version: 21, name: "宝可梦 黑"),
             "pkm_white2" => (generation: 5, version: 22, name: "宝可梦 白2"),
             "pkm_black2" => (generation: 5, version: 23, name: "宝可梦 黑2"),
-            _ => throw new BusinessException($"未知的游戏: {gameId}")
+            _ => throw BusinessException.FromKey("save.unknownGame", 400, gameId)
         };
 
         var saveFileId = Guid.NewGuid();
@@ -363,14 +363,14 @@ public class SaveFileService
     {
         var boxData = sav.GetBoxData(targetBoxIndex);
         if (targetSlotIndex < 0 || targetSlotIndex >= boxData.Length)
-            throw new BusinessException("槽位索引无效", 400);
+            throw BusinessException.FromKey("save.slotIndexInvalid", 400);
 
         if (!allowOverwrite && boxData[targetSlotIndex].Species != 0)
-            throw new BusinessException("目标槽位已被占用", 400);
+            throw BusinessException.FromKey("save.targetSlotOccupied", 400);
 
         var compat = sav.GetCompatiblePKM(pkm);
         if (compat == null)
-            throw new BusinessException("宝可梦格式与目标存档不兼容", 400);
+            throw BusinessException.FromKey("save.pkmIncompatible", 400);
 
         boxData[targetSlotIndex] = compat;
         sav.SetBoxData(boxData, targetBoxIndex);
@@ -384,13 +384,13 @@ public class SaveFileService
         var bankPkm = await _db.QueryFirstOrDefaultAsync<BankPokemon>(
             "SELECT * FROM bank_pokemon WHERE id = @Id AND user_id = @UserId",
             new { Id = bankPokemonId, UserId = userId })
-            ?? throw new BusinessException("银行宝可梦不存在", 404);
+            ?? throw BusinessException.FromKey("bank.notFound", 404);
 
         if (string.IsNullOrEmpty(bankPkm.PkmDataBase64))
-            throw new BusinessException("该银行记录缺少原始数据", 400);
+            throw BusinessException.FromKey("save.bankRecordMissing", 400);
 
         var pkm = EntityFormat.GetFromBytes(Convert.FromBase64String(bankPkm.PkmDataBase64))
-            ?? throw new BusinessException("无法解析宝可梦数据", 400);
+            ?? throw BusinessException.FromKey("parse.rebuildFailed", 400);
 
         // 共享 helper（allowOverwrite: 拖放是用户显式选择，允许覆盖已占用槽位）
         WritePkmToBoxSlot(sav, targetBoxIndex, targetSlotIndex, pkm, allowOverwrite: true);
@@ -429,7 +429,7 @@ public class SaveFileService
     {
         var (sf, sav) = await LoadSave(saveFileId, userId);
         if ((uint)boxIndex >= sav.BoxCount)
-            throw new BusinessException("箱子索引无效", 400);
+            throw BusinessException.FromKey("save.boxIndexInvalid", 400);
 
         sav.SortBoxes(boxIndex, boxIndex, GetBoxSortMethod(sortBy));
         await WriteBackSave(sf, userId, sav);
@@ -568,11 +568,11 @@ public class SaveFileService
         var backup = await _db.QueryFirstOrDefaultAsync<SaveBackupEntity>(
             "SELECT * FROM save_backups WHERE id = @Id AND save_file_id = @SfId",
             new { Id = backupId, SfId = saveFileId })
-            ?? throw new BusinessException("备份不存在", 404);
+            ?? throw BusinessException.FromKey("save.backupNotFound", 404);
 
         var data = ReadBackupBytes(backup);
         if (data.Length == 0)
-            throw new BusinessException("备份文件不可用");
+            throw BusinessException.FromKey("save.backupUnavailable", 400);
 
         // 恢复前先备份当前
         await CreateBackup(saveFileId, userId, "恢复前自动备份");
@@ -895,14 +895,14 @@ public class SaveFileService
     {
         // 空值保护（ASP.NET 自动 400 已禁用，需手动校验）
         if (dto == null)
-            throw new BusinessException("请求体不能为空", 400);
+            throw BusinessException.FromKey("save.requestBodyRequired", 400);
 
         var (sf, sav) = await LoadSave(saveFileId, userId);
         var maxSpecies = sav.MaxSpeciesID;
         var zukan4 = sav is SAV4 s4 ? s4.Dex : null;
 
         if (dto.Entries == null || dto.Entries.Count == 0)
-            throw new BusinessException("图鉴条目列表不能为空", 400);
+            throw BusinessException.FromKey("save.pokedexEntriesRequired", 400);
 
         // 去重：按 species 取最后一条
         var deduped = dto.Entries
@@ -912,7 +912,7 @@ public class SaveFileService
         foreach (var (species, entry) in deduped)
         {
             if (species < 1 || species > maxSpecies)
-                throw new BusinessException($"物种编号 {species} 超出该存档范围 (1-{maxSpecies})", 400);
+                throw BusinessException.FromKey("save.speciesOutOfRange", 400, species, maxSpecies);
 
             // 语义归一化：caught ⇒ seen / !seen ⇒ !caught
             if (entry.Caught) entry.Seen = true;
@@ -959,10 +959,10 @@ public class SaveFileService
     {
         // 手动判空 + 白名单校验（ASP.NET 自动 400 已禁用）
         if (string.IsNullOrWhiteSpace(action))
-            throw new BusinessException("缺少批量操作参数", 400);
+            throw BusinessException.FromKey("save.batchActionRequired", 400);
         var normalized = action.Trim();
         if (!AllowedPokedexBatchActions.Contains(normalized))
-            throw new BusinessException($"不支持的批量操作: {action}，可选: seenAll, caughtAll, clearAll", 400);
+            throw BusinessException.FromKey("save.batchActionUnsupported", 400, action);
 
         var (sf, sav) = await LoadSave(saveFileId, userId);
         var max = sav.MaxSpeciesID;
@@ -1352,7 +1352,7 @@ public class SaveFileService
     {
         // 空值保护（ASP.NET 自动 400 已禁用，需手动校验）
         if (dto == null)
-            throw new BusinessException("请求体不能为空", 400);
+            throw BusinessException.FromKey("save.requestBodyRequired", 400);
 
         var (sf, sav) = await LoadSave(saveFileId, userId);
 
@@ -1538,7 +1538,7 @@ public class SaveFileService
         await _db.QueryFirstOrDefaultAsync<SaveFileEntity>(
             "SELECT * FROM save_files WHERE id = @Id AND user_id = @UserId",
             new { Id = saveFileId, UserId = userId })
-            ?? throw new BusinessException("存档不存在", 404);
+            ?? throw BusinessException.FromKey("save.notFound", 404);
 
     private Task<SaveFileEntity> LoadSaveFileEntityAsync(Guid saveFileId, Guid userId) =>
         LoadSaveFileEntity(saveFileId, userId);
@@ -1581,7 +1581,7 @@ public class SaveFileService
             "level" => (list, _) => list.OrderByDescendingLevel(),
             "shiny" => (list, _) => list.OrderByCustom(pk => pk.IsShiny ? 0 : 1, pk => pk.Species),
             "name" => (list, _) => OrderByName(list),
-            _ => throw new BusinessException("不支持的排序方式", 400),
+            _ => throw BusinessException.FromKey("save.sortModeUnsupported", 400),
         };
     }
 

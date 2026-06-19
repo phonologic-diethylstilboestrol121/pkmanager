@@ -15,23 +15,42 @@ namespace PkManager.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class EmulatorController : ControllerBase
+public class EmulatorController : LocalizedControllerBase
 {
     private static readonly TimeSpan SyncTokenLifetime = TimeSpan.FromHours(12);
     private const string NewGameSaveSkippedMessage = "未检测到游戏内有效存档，已跳过同步";
+    private static readonly RomConfigEntry[] SupportedLocalRoms =
+    [
+        new("pkm_ruby", "宝可梦 红宝石", 3, "ROM_PKM_RUBY"),
+        new("pkm_sapphire", "宝可梦 蓝宝石", 3, "ROM_PKM_SAPPHIRE"),
+        new("pkm_emerald", "宝可梦 绿宝石", 3, "ROM_PKM_EMERALD"),
+        new("pkm_firered", "宝可梦 火红", 3, "ROM_PKM_FIRERED"),
+        new("pkm_leafgreen", "宝可梦 叶绿", 3, "ROM_PKM_LEAFGREEN"),
+        new("pkm_diamond", "宝可梦 钻石", 4, "ROM_PKM_DIAMOND"),
+        new("pkm_pearl", "宝可梦 珍珠", 4, "ROM_PKM_PEARL"),
+        new("pkm_platinum", "宝可梦 白金", 4, "ROM_PKM_PLATINUM"),
+        new("pkm_heartgold", "宝可梦 心金", 4, "ROM_PKM_HEARTGOLD"),
+        new("pkm_soulsilver", "宝可梦 魂银", 4, "ROM_PKM_SOULSILVER"),
+        new("pkm_black", "宝可梦 黑", 5, "ROM_PKM_BLACK"),
+        new("pkm_white", "宝可梦 白", 5, "ROM_PKM_WHITE"),
+        new("pkm_black2", "宝可梦 黑2", 5, "ROM_PKM_BLACK2"),
+        new("pkm_white2", "宝可梦 白2", 5, "ROM_PKM_WHITE2"),
+    ];
     private readonly NpgsqlConnection _db;
     private readonly SaveFileService _saveFileService;
     private readonly ParseService _parseService;
     private readonly UserContext _userContext;
     private readonly LegalityCacheService _legalityCache;
     private readonly string _romDir;
+    private readonly IConfiguration _config;
 
     private readonly SettingsService _settingsService;
 
     public EmulatorController(NpgsqlConnection db, SaveFileService saveFileService, ParseService parseService, UserContext userContext, IWebHostEnvironment env, IConfiguration config, SettingsService settingsService, LegalityCacheService legalityCache)
     {
         _db = db; _saveFileService = saveFileService; _parseService = parseService; _userContext = userContext;
-        var romDirConfig = config["RomImport:Directory"] ?? Path.Combine("..", "..", "roms");
+        _config = config;
+        var romDirConfig = config["ROM_IMPORT_DIRECTORY"] ?? config["RomImport:Directory"] ?? Path.Combine("..", "..", "roms");
         _romDir = Path.GetFullPath(Path.Combine(env.ContentRootPath, romDirConfig));
         _settingsService = settingsService;
         _legalityCache = legalityCache;
@@ -41,7 +60,7 @@ public class EmulatorController : ControllerBase
     [HttpGet("roms")]
     public async Task<ActionResult<ApiResponse<List<RomDto>>>> ListRoms()
     {
-        if (_userContext.UserId == null) return Unauthorized(ApiResponse<List<RomDto>>.Error(401, "未登录"));
+        if (_userContext.UserId == null) return UnauthorizedMessage<List<RomDto>>();
         var roms = await _db.QueryAsync<RomFileEntity>("SELECT id, game_id, display_name, generation, file_size FROM rom_files ORDER BY display_name");
         return Ok(ApiResponse<List<RomDto>>.Ok(roms.Select(r => new RomDto
         {
@@ -70,53 +89,69 @@ public class EmulatorController : ControllerBase
     [HttpPost("roms/import-local")]
     public async Task<ActionResult<ApiResponse<object>>> ImportLocal()
     {
-        if (_userContext.UserId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (_userContext.UserId == null) return UnauthorizedMessage<object>();
         if (!Directory.Exists(_romDir)) return BadRequest(ApiResponse<object>.Error(400, $"ROM目录不存在: {_romDir}"));
 
-        var romMap = new Dictionary<string, (string gameId, string displayName, int generation)>(StringComparer.OrdinalIgnoreCase) {
-            // GBA (Gen3)
-            {"红宝石", ("pkm_ruby", "宝可梦 红宝石", 3)}, {"蓝宝石", ("pkm_sapphire", "宝可梦 蓝宝石", 3)},
-            {"绿宝石", ("pkm_emerald", "宝可梦 绿宝石", 3)}, {"火红", ("pkm_firered", "宝可梦 火红", 3)},
-            {"叶绿", ("pkm_leafgreen", "宝可梦 叶绿", 3)},
-            // NDS (Gen4)
-            {"钻石", ("pkm_diamond", "宝可梦 钻石", 4)}, {"珍珠", ("pkm_pearl", "宝可梦 珍珠", 4)},
-            {"白金", ("pkm_platinum", "宝可梦 白金", 4)}, {"金心", ("pkm_heartgold", "宝可梦 心金", 4)},
-            {"魂银", ("pkm_soulsilver", "宝可梦 魂银", 4)},
-            // NDS (Gen5)
-            {"黑2", ("pkm_black2", "宝可梦 黑2", 5)}, {"白2", ("pkm_white2", "宝可梦 白2", 5)},
-            {"黑", ("pkm_black", "宝可梦 黑", 5)}, {"白", ("pkm_white", "宝可梦 白", 5)},
-        };
-
         var imported = new List<string>();
+        var missingConfig = new List<string>();
+        var missingFile = new List<string>();
 
-        // 全部 ROM 统一走文件系统路径（GBA .gba + NDS .nds）
-        foreach (var ext in new[] { "*.gba", "*.nds" }) {
-        foreach (var file in Directory.GetFiles(_romDir, ext)) {
-            var name = Path.GetFileNameWithoutExtension(file);
-            var match = romMap.FirstOrDefault(kv => name.Contains(kv.Key));
-            if (match.Key == null) continue;
-            var (gid, dname, gen) = match.Value;
+        foreach (var rom in SupportedLocalRoms)
+        {
+            var configuredPath = _config[rom.ConfigKey];
+            if (string.IsNullOrWhiteSpace(configuredPath))
+            {
+                missingConfig.Add($"{rom.DisplayName} ({rom.ConfigKey})");
+                continue;
+            }
 
-            var fileSize = new FileInfo(file).Length;
-            var existing = await _db.QueryFirstOrDefaultAsync<RomFileEntity>("SELECT id FROM rom_files WHERE game_id=@Id", new { Id = gid });
+            var resolvedPath = ResolveRomPath(configuredPath);
+            if (!System.IO.File.Exists(resolvedPath))
+            {
+                missingFile.Add($"{rom.DisplayName} ({configuredPath})");
+                continue;
+            }
+
+            var fileSize = new FileInfo(resolvedPath).Length;
+            var existing = await _db.QueryFirstOrDefaultAsync<RomFileEntity>("SELECT id FROM rom_files WHERE game_id=@Id", new { Id = rom.GameId });
             if (existing != null)
-                await _db.ExecuteAsync("UPDATE rom_files SET file_size=@S, local_path=@P WHERE game_id=@I", new { I = gid, S = fileSize, P = file });
+                await _db.ExecuteAsync("UPDATE rom_files SET file_size=@S, local_path=@P WHERE game_id=@I", new { I = rom.GameId, S = fileSize, P = resolvedPath });
             else
                 await _db.ExecuteAsync("INSERT INTO rom_files (game_id,display_name,generation,file_size,local_path,rom_data) VALUES (@I,@N,@G,@S,@P,@D)",
-                    new { I = gid, N = dname, G = gen, S = fileSize, P = file, D = Array.Empty<byte>() });
-            imported.Add($"{dname} ({fileSize} bytes)");
+                    new { I = rom.GameId, N = rom.DisplayName, G = rom.Generation, S = fileSize, P = resolvedPath, D = Array.Empty<byte>() });
+            imported.Add($"{rom.DisplayName} ({fileSize} bytes)");
         }
-        }
-        return Ok(ApiResponse<object>.Ok(new { imported }, string.Join(", ", imported)));
+
+        if (imported.Count == 0)
+            return BadRequest(ApiResponse<object>.Error(400, $"没有可导入的已配置 ROM。missingConfig={missingConfig.Count}, missingFile={missingFile.Count}"));
+
+        var summary = $"已导入 {imported.Count} 个 ROM";
+        if (missingConfig.Count > 0 || missingFile.Count > 0)
+            summary += $"，缺少配置 {missingConfig.Count} 个，缺少文件 {missingFile.Count} 个";
+
+        return Ok(ApiResponse<object>.Ok(new
+        {
+            imported,
+            missingConfig,
+            missingFile
+        }, summary));
     }
+
+    private string ResolveRomPath(string configuredPath)
+    {
+        if (Path.IsPathRooted(configuredPath)) return Path.GetFullPath(configuredPath);
+        return Path.GetFullPath(Path.Combine(_romDir, configuredPath));
+    }
+
+    private sealed record RomConfigEntry(string GameId, string DisplayName, int Generation, string ConfigKey);
 
     /// <summary>上传 ROM（管理员用）</summary>
     [HttpPost("roms/upload")]
     [RequestSizeLimit(64 * 1024 * 1024)]
     public async Task<ActionResult<ApiResponse<object>>> UploadRom(IFormFile file, [FromForm] string gameId, [FromForm] string displayName, [FromForm] int generation = 3)
     {
-        if (_userContext.UserId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
-        if (file == null || file.Length == 0) return BadRequest(ApiResponse<object>.Error(400, "请选择ROM文件"));
+        if (_userContext.UserId == null) return UnauthorizedMessage<object>();
+        if (file == null || file.Length == 0) return BadRequest(ErrorMessage<object>(400, "emulator.romFileRequired"));
         using var ms = new MemoryStream();
         await file.CopyToAsync(ms);
         var data = ms.ToArray();
@@ -126,7 +161,7 @@ public class EmulatorController : ControllerBase
         else
             await _db.ExecuteAsync("INSERT INTO rom_files (game_id, display_name, generation, rom_data, file_size) VALUES (@Id,@Name,@Gen,@Data,@Size)",
                 new { Id = gameId, Name = displayName, Gen = generation, Data = data, Size = data.Length });
-        return Ok(ApiResponse<object>.Ok(new { }, "ROM上传成功"));
+        return Ok(OkMessage(new { }, "emulator.romUploadSuccess"));
     }
 
     /// <summary>
@@ -138,9 +173,9 @@ public class EmulatorController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> SyncSave([FromBody] SyncSaveRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
         if (string.IsNullOrEmpty(request.SaveDataBase64))
-            return BadRequest(ApiResponse<object>.Error(400, "缺少存档数据"));
+            return BadRequest(ErrorMessage<object>(400, "emulator.saveDataRequired"));
 
         var data = Convert.FromBase64String(request.SaveDataBase64);
         SaveFileDetailDto? parsedNewGameSave = null;
@@ -162,7 +197,7 @@ public class EmulatorController : ControllerBase
         }
         else
         {
-            return BadRequest(ApiResponse<object>.Error(400, "缺少 saveFileId 或 gameId"));
+            return BadRequest(ErrorMessage<object>(400, "emulator.saveFileOrGameRequired"));
         }
 
         var saveFile = await _db.QueryFirstOrDefaultAsync<Models.Entity.SaveFile>(
@@ -185,7 +220,7 @@ public class EmulatorController : ControllerBase
 
         _legalityCache.InvalidateSave(saveFileId);
 
-        return Ok(ApiResponse<object>.Ok(new { saveFileId, metadata.TrainerName, metadata.PokemonCount }, "存档已同步"));
+        return Ok(OkMessage(new { saveFileId, metadata.TrainerName, metadata.PokemonCount }, "emulator.saveSynced"));
     }
 
     /// <summary>
@@ -197,7 +232,7 @@ public class EmulatorController : ControllerBase
         Guid saveFileId, [FromQuery] string token)
     {
         // 验证 token（sendBeacon 无法设置自定义请求头，token 通过 query string 传递）
-        if (string.IsNullOrEmpty(token)) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (string.IsNullOrEmpty(token)) return UnauthorizedMessage<object>();
 
         var userId = _userContext.UserId; // 优先使用 JWT 中间件解析的结果
         var usedSyncToken = false;
@@ -206,10 +241,10 @@ public class EmulatorController : ControllerBase
             if (syncEntry.ExpiresAt < DateTime.UtcNow)
             {
                 _syncTokens.TryRemove(token, out _);
-                return Unauthorized(ApiResponse<object>.Error(401, "同步 token 已过期"));
+                return Unauthorized(ErrorMessage<object>(401, "emulator.syncTokenExpired"));
             }
             if (syncEntry.SaveFileId != saveFileId)
-                return Unauthorized(ApiResponse<object>.Error(401, "同步 token 不匹配"));
+                return Unauthorized(ErrorMessage<object>(401, "emulator.syncTokenMismatch"));
             userId = syncEntry.UserId;
             usedSyncToken = true;
         }
@@ -222,10 +257,10 @@ public class EmulatorController : ControllerBase
                 var jwt = handler.ReadJwtToken(token);
                 var uidClaim = jwt.Claims.FirstOrDefault(c => c.Type == "sub" || c.Type == "userId");
                 if (uidClaim == null || !Guid.TryParse(uidClaim.Value, out var uid))
-                    return Unauthorized(ApiResponse<object>.Error(401, "Token 无效"));
+                    return Unauthorized(ErrorMessage<object>(401, "emulator.tokenInvalid"));
                 userId = uid;
             }
-            catch { return Unauthorized(ApiResponse<object>.Error(401, "Token 无效")); }
+            catch { return Unauthorized(ErrorMessage<object>(401, "emulator.tokenInvalid")); }
         }
 
         var saveFile = await _db.QueryFirstOrDefaultAsync<Models.Entity.SaveFile>(
@@ -240,7 +275,7 @@ public class EmulatorController : ControllerBase
             await Request.Body.CopyToAsync(ms);
             data = ms.ToArray();
         }
-        if (data.Length == 0) return BadRequest(ApiResponse<object>.Error(400, "存档数据为空"));
+        if (data.Length == 0) return BadRequest(ErrorMessage<object>(400, "emulator.emptySaveData"));
 
         // 写入前自动备份
         var currentData = _saveFileService.ReadSaveBytes(saveFile, userId.Value);
@@ -283,7 +318,7 @@ public class EmulatorController : ControllerBase
 
         _legalityCache.InvalidateSave(saveFileId);
 
-        return Ok(ApiResponse<object>.Ok(new { }, "存档已同步"));
+        return Ok(OkMessage(new { }, "emulator.saveSynced"));
     }
 
     /// <summary>
@@ -294,7 +329,7 @@ public class EmulatorController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> SyncSaveBinaryNew(
         string gameId, [FromQuery] string token)
     {
-        if (string.IsNullOrEmpty(token)) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (string.IsNullOrEmpty(token)) return UnauthorizedMessage<object>();
 
         var userId = _userContext.UserId;
         if (userId == null)
@@ -305,10 +340,10 @@ public class EmulatorController : ControllerBase
                 var jwt = handler.ReadJwtToken(token);
                 var uidClaim = jwt.Claims.FirstOrDefault(c => c.Type == "sub" || c.Type == "userId");
                 if (uidClaim == null || !Guid.TryParse(uidClaim.Value, out var uid))
-                    return Unauthorized(ApiResponse<object>.Error(401, "Token 无效"));
+                    return Unauthorized(ErrorMessage<object>(401, "emulator.tokenInvalid"));
                 userId = uid;
             }
-            catch { return Unauthorized(ApiResponse<object>.Error(401, "Token 无效")); }
+            catch { return Unauthorized(ErrorMessage<object>(401, "emulator.tokenInvalid")); }
         }
 
         byte[] data;
@@ -317,7 +352,7 @@ public class EmulatorController : ControllerBase
             await Request.Body.CopyToAsync(ms);
             data = ms.ToArray();
         }
-        if (data.Length == 0) return BadRequest(ApiResponse<object>.Error(400, "存档数据为空"));
+        if (data.Length == 0) return BadRequest(ErrorMessage<object>(400, "emulator.emptySaveData"));
 
         var parsedNewGameSave = TryParseNewGameSave(data, $"{gameId}.sav");
         if (parsedNewGameSave == null)
@@ -338,7 +373,7 @@ public class EmulatorController : ControllerBase
 
         _legalityCache.InvalidateSave(saveFileId);
 
-        return Ok(ApiResponse<object>.Ok(new { saveFileId, metadata.TrainerName, metadata.PokemonCount }, "存档已同步"));
+        return Ok(OkMessage(new { saveFileId, metadata.TrainerName, metadata.PokemonCount }, "emulator.saveSynced"));
     }
 
     private SaveFileDetailDto? TryParseNewGameSave(byte[] data, string fileName)
@@ -395,10 +430,10 @@ public class EmulatorController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> SaveState(Guid saveFileId, int slot, [FromBody] byte[] stateData)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
         await _db.ExecuteAsync("INSERT INTO emulator_save_states (save_file_id, slot, state_data) VALUES (@Sf,@Sl,@Dt) ON CONFLICT (save_file_id, slot) DO UPDATE SET state_data=@Dt, created_at=NOW()",
             new { Sf = saveFileId, Sl = slot, Dt = stateData });
-        return Ok(ApiResponse<object>.Ok(new { }, $"即时存档 #{slot} 已保存"));
+        return Ok(OkMessage(new { }, "emulator.saveStateSaved", slot));
     }
 
     /// <summary>加载即时存档状态</summary>
@@ -420,7 +455,7 @@ public class EmulatorController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> CheckLocal([FromBody] CheckLocalRequest req)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
 
         var deviceId = GetDeviceId();
         var emuSettings = await _settingsService.GetEmulatorSettings(userId.Value, deviceId);
@@ -484,7 +519,7 @@ public class EmulatorController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> LaunchLocal(Guid saveFileId)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
 
         var save = await _db.QueryFirstOrDefaultAsync<Models.Entity.SaveFile>(
             "SELECT * FROM save_files WHERE id=@Id AND user_id=@Uid", new { Id = saveFileId, Uid = userId });
@@ -584,7 +619,7 @@ public class EmulatorController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> CreateLaunchToken(Guid saveFileId)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
 
         // 复用 LaunchLocal 的逻辑构建启动包
         var save = await _db.QueryFirstOrDefaultAsync<Models.Entity.SaveFile>(
@@ -652,7 +687,7 @@ public class EmulatorController : ControllerBase
         {
             token,
             protocolUrl = $"pkmanager://launch/{token}?backend={Uri.EscapeDataString(backendBase)}",
-        }, "token 已创建，5分钟内有效"));
+        }, "emulator.launchTokenCreated"));
     }
 
     /// <summary>通过临时 token 获取启动包（免认证，一次性使用）</summary>
@@ -660,10 +695,10 @@ public class EmulatorController : ControllerBase
     public ActionResult<ApiResponse<object>> GetLaunchPackage(string token)
     {
         if (!_launchTokens.TryRemove(token, out var entry))
-            return NotFound(ApiResponse<object>.Error(404, "token 无效或已过期"));
+            return NotFound(ErrorMessage<object>(404, "emulator.launchTokenInvalidOrExpired"));
 
         if (entry.ExpiresAt < DateTime.UtcNow)
-            return StatusCode(410, ApiResponse<object>.Error(410, "token 已过期"));
+            return StatusCode(410, ErrorMessage<object>(410, "emulator.launchTokenExpired"));
 
         var p = entry.Package;
         return Ok(ApiResponse<object>.Ok(new
@@ -707,7 +742,7 @@ public class EmulatorController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> SyncFromLocal(Guid saveFileId)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
 
         var deviceId = GetDeviceId();
         var emuSettings = await _settingsService.GetEmulatorSettings(userId.Value, deviceId);
@@ -732,7 +767,7 @@ public class EmulatorController : ControllerBase
                 saveDir = GetDefaultDeSmuMESaveDir();
         }
         if (string.IsNullOrWhiteSpace(saveDir))
-            return BadRequest(ApiResponse<object>.Error(400, "模拟器存档目录未配置"));
+            return BadRequest(ErrorMessage<object>(400, "emulator.saveDirectoryNotConfigured"));
 
         // Find the emulator save path
         string emuSavePath;
@@ -750,7 +785,7 @@ public class EmulatorController : ControllerBase
         }
 
         if (!System.IO.File.Exists(emuSavePath))
-            return NotFound(ApiResponse<object>.Error(404, "模拟器存档文件不存在，请先在游戏中保存"));
+            return NotFound(ErrorMessage<object>(404, "emulator.saveFileMissing"));
 
         // Read back and write to pkmanager canonical path
         var data = await System.IO.File.ReadAllBytesAsync(emuSavePath);
@@ -784,7 +819,7 @@ public class EmulatorController : ControllerBase
         var pidLockPath = Path.Combine(saveDir, "pkmanager_backup", "pid.lock");
         if (System.IO.File.Exists(pidLockPath)) System.IO.File.Delete(pidLockPath);
 
-        return Ok(ApiResponse<object>.Ok(new { synced = true, restored }, "存档已同步"));
+        return Ok(OkMessage(new { synced = true, restored }, "emulator.saveSynced"));
     }
 
     /// <summary>检查本地模拟器进程是否还在运行</summary>
@@ -811,7 +846,7 @@ public class EmulatorController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> EmergencyRestore(Guid saveFileId)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
 
         var save = await _db.QueryFirstOrDefaultAsync<Models.Entity.SaveFile>(
             "SELECT * FROM save_files WHERE id=@Id AND user_id=@Uid", new { Id = saveFileId, Uid = userId });
@@ -836,14 +871,14 @@ public class EmulatorController : ControllerBase
                 saveDir = GetDefaultDeSmuMESaveDir();
         }
         if (string.IsNullOrWhiteSpace(saveDir))
-            return BadRequest(ApiResponse<object>.Error(400, "模拟器目录未配置"));
+            return BadRequest(ErrorMessage<object>(400, "emulator.directoryNotConfigured"));
 
         var backupDir = Path.Combine(saveDir, "pkmanager_backup");
         if (gen >= 6) backupDir = Path.Combine(backupDir, GetTitleIdLow(gameVersion));
         var backupPath = Path.Combine(backupDir, gen >= 6 ? "main.bak" : "save.dsv.bak");
 
         if (!System.IO.File.Exists(backupPath))
-            return NotFound(ApiResponse<object>.Error(404, "没有找到备份文件。可能尚未启动过本地模拟器"));
+            return NotFound(ErrorMessage<object>(404, "emulator.backupFileMissing"));
 
         // 恢复
         string emuSavePath;
@@ -860,7 +895,7 @@ public class EmulatorController : ControllerBase
 
         System.IO.File.Copy(backupPath, emuSavePath, overwrite: true);
 
-        return Ok(ApiResponse<object>.Ok(new { restored = true, backupPath, targetPath = emuSavePath }, "本地存档已从备份恢复"));
+        return Ok(OkMessage(new { restored = true, backupPath, targetPath = emuSavePath }, "emulator.localRestoreCompleted"));
     }
 
     // ── GBA 模拟器 AI 控制接口 ────────────────────────────
@@ -934,7 +969,7 @@ public class EmulatorController : ControllerBase
             await Task.Delay(200);
         }
 
-        return StatusCode(504, ApiResponse<object>.Error(504, $"命令超时 ({timeout}ms)"));
+        return StatusCode(504, ErrorMessage<object>(504, "emulator.commandTimeout", timeout));
     }
 
     // ── Command queue storage ─────────────────────────────

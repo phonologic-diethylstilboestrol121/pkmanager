@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Typography, Card, Input, Select, Switch, Row, Col, Pagination,
   Tag, Empty, App, Button, Popconfirm, Space,
@@ -21,22 +21,6 @@ import PageContainer from '../components/PageContainer';
 import type { ApiError } from '../api/axios';
 
 const { Text } = Typography;
-
-const GENERATION_OPTIONS = [
-  { value: 3, label: 'Gen3 (GBA)' },
-  { value: 4, label: 'Gen4 (NDS)' },
-  { value: 5, label: 'Gen5 (NDS)' },
-  { value: 6, label: 'Gen6 (3DS)' },
-  { value: 7, label: 'Gen7 (3DS)' },
-];
-
-const SORT_OPTIONS = [
-  { value: 'created_desc', label: '添加时间 ↓' },
-  { value: 'level_desc', label: '等级 ↓' },
-  { value: 'level_asc', label: '等级 ↑' },
-  { value: 'species_desc', label: '物种编号 ↓' },
-  { value: 'species_asc', label: '物种编号 ↑' },
-];
 
 const BankPage: React.FC = () => {
   const { t } = useTranslation(['pages', 'messages', 'common']);
@@ -76,6 +60,20 @@ const BankPage: React.FC = () => {
   const abilityOptions = abilities.map(a => ({ value: a.id, label: a.name }));
 
   const { message } = App.useApp();
+  const generationOptions = useMemo(() => [
+    { value: 3, label: t('bank.gen3', { ns: 'pages', defaultValue: 'Gen3 (GBA)' }) },
+    { value: 4, label: t('bank.gen4', { ns: 'pages', defaultValue: 'Gen4 (NDS)' }) },
+    { value: 5, label: t('bank.gen5', { ns: 'pages', defaultValue: 'Gen5 (NDS)' }) },
+    { value: 6, label: t('bank.gen6', { ns: 'pages', defaultValue: 'Gen6 (3DS)' }) },
+    { value: 7, label: t('bank.gen7', { ns: 'pages', defaultValue: 'Gen7 (3DS)' }) },
+  ], [t]);
+  const sortOptions = useMemo(() => [
+    { value: 'created_desc', label: t('bank.sortCreatedDesc', { ns: 'pages', defaultValue: '添加时间 ↓' }) },
+    { value: 'level_desc', label: t('bank.sortLevelDesc', { ns: 'pages', defaultValue: '等级 ↓' }) },
+    { value: 'level_asc', label: t('bank.sortLevelAsc', { ns: 'pages', defaultValue: '等级 ↑' }) },
+    { value: 'species_desc', label: t('bank.sortSpeciesDesc', { ns: 'pages', defaultValue: '物种编号 ↓' }) },
+    { value: 'species_asc', label: t('bank.sortSpeciesAsc', { ns: 'pages', defaultValue: '物种编号 ↑' }) },
+  ], [t]);
 
   // ── Data fetching ────────────────────────────────────
 
@@ -293,7 +291,7 @@ const BankPage: React.FC = () => {
               background: '#ff4d4f', color: '#fff', borderRadius: '50%',
               width: 14, height: 14, fontSize: 9, lineHeight: '14px', textAlign: 'center',
               border: '1px solid #fff',
-            }} title="头目 (Alpha)">α</span>
+            }} title={t('saveEditor.alphaTitle', { ns: 'pages', defaultValue: '头目 (Alpha)' })}>α</span>
           )}
           {/* Shiny star — top-right */}
           {p.isShiny && (
@@ -309,7 +307,7 @@ const BankPage: React.FC = () => {
               background: '#fa541c', color: '#fff', borderRadius: '50%',
               width: 14, height: 14, fontSize: 10, lineHeight: '14px', textAlign: 'center',
               border: '1px solid #fff',
-            }} title="超极巨化">G</span>
+            }} title={t('saveEditor.gmaxTitle', { ns: 'pages', defaultValue: '超极巨化' })}>G</span>
           )}
         </div>
 
@@ -328,7 +326,7 @@ const BankPage: React.FC = () => {
         </div>
         <div style={{ marginTop: 2 }}>
           {p.isShiny && <Tag color="gold">{t('bank.shinyTag', { ns: 'pages', defaultValue: '闪光' })}</Tag>}
-          <Tag>{GENERATION_OPTIONS.find(g => g.value === p.generation)?.label || `Gen${p.generation}`}</Tag>
+          <Tag>{generationOptions.find(g => g.value === p.generation)?.label || `Gen${p.generation}`}</Tag>
         </div>
       </Card>
     );
@@ -370,7 +368,7 @@ const BankPage: React.FC = () => {
                     background: '#ff4d4f', color: '#fff', borderRadius: '50%',
                     width: 12, height: 12, fontSize: 8, lineHeight: '12px', textAlign: 'center',
                     border: '1px solid #fff',
-                  }}>α</span>
+                  }} title={t('saveEditor.alphaTitle', { ns: 'pages', defaultValue: '头目 (Alpha)' })}>α</span>
                 )}
                 {p.isShiny && (
                   <StarFilled style={{
@@ -384,7 +382,7 @@ const BankPage: React.FC = () => {
                     background: '#fa541c', color: '#fff', borderRadius: '50%',
                     width: 12, height: 12, fontSize: 8, lineHeight: '12px', textAlign: 'center',
                     border: '1px solid #fff',
-                  }}>G</span>
+                  }} title={t('saveEditor.gmaxTitle', { ns: 'pages', defaultValue: '超极巨化' })}>G</span>
                 )}
               </div>
             </Col>
@@ -397,7 +395,7 @@ const BankPage: React.FC = () => {
                 {p.natureName && <Tag>{p.natureName}</Tag>}
                 {p.heldItemName && <Tag color="purple">{p.heldItemName}</Tag>}
                 {p.isShiny && <Tag color="gold">✨ {t('bank.shinyTag', { ns: 'pages', defaultValue: '闪光' })}</Tag>}
-                <Tag>{GENERATION_OPTIONS.find(g => g.value === p.generation)?.label || `Gen${p.generation}`}</Tag>
+                <Tag>{generationOptions.find(g => g.value === p.generation)?.label || `Gen${p.generation}`}</Tag>
               </div>
             </Col>
             {/* Delete */}
@@ -470,7 +468,7 @@ const BankPage: React.FC = () => {
               style={{ width: 140 }}
               value={generation}
               onChange={(val) => { setGeneration(val); setPage(1); }}
-              options={GENERATION_OPTIONS}
+              options={generationOptions}
             />
           </Col>
           <Col>
@@ -525,7 +523,7 @@ const BankPage: React.FC = () => {
               style={{ width: 140 }}
               value={sortBy}
               onChange={(val) => { setSortBy(val); setPage(1); }}
-              options={SORT_OPTIONS}
+              options={sortOptions}
             />
           </Col>
           <Col>
@@ -619,7 +617,7 @@ const BankPage: React.FC = () => {
             onChange={(val) => handleMoveSaveSelected(val)}
             options={moveSaves.map(s => ({
               value: s.saveFileId,
-              label: `${s.filename} (${s.trainerName || '?'} · ${s.pokemonCount}只)`,
+              label: `${s.filename} (${s.trainerName || '?'} · ${t('bank.savePokemonCount', { ns: 'pages', defaultValue: '{{count}}只', count: s.pokemonCount })})`,
             }))}
           />
         </div>

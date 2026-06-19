@@ -162,5 +162,20 @@
   "saveEditor.boxSortLevel": "Level",
   "saveEditor.boxSortShiny": "Shiny First",
   "saveEditor.boxSortName": "Name",
-  "saveEditor.scanFailed": "Scan failed"
+  "saveEditor.scanFailed": "Scan failed",
+  "settings.desmumeExeExtra": "Linux: /usr/bin/desmume | Windows: C:\\Program Files\\DeSmuME\\DeSmuME.exe",
+  "settings.desmumeSaveExtra": "Linux: ~/.config/desmume/ | Windows: %APPDATA%\\DeSmuME",
+  "settings.azaharExeExtra": "Linux: /usr/bin/azahar | Windows: C:\\Program Files\\Azahar\\azahar.exe",
+  "settings.azaharDataExtra": "Directory containing sdmc/ (Linux: ~/.local/share/azahar-emu/ | Windows: %APPDATA%\\azahar-emu)",
+  "bank.gen3": "Gen3 (GBA)",
+  "bank.gen4": "Gen4 (NDS)",
+  "bank.gen5": "Gen5 (NDS)",
+  "bank.gen6": "Gen6 (3DS)",
+  "bank.gen7": "Gen7 (3DS)",
+  "bank.sortCreatedDesc": "Created ↓",
+  "bank.sortLevelDesc": "Level ↓",
+  "bank.sortLevelAsc": "Level ↑",
+  "bank.sortSpeciesDesc": "Species ID ↓",
+  "bank.sortSpeciesAsc": "Species ID ↑",
+  "bank.savePokemonCount": "{{count}} Pokemon"
 }

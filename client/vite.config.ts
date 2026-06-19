@@ -16,7 +16,7 @@ function loadConfig(): Record<string, string> {
       const trimmed = line.trim()
       if (!trimmed || trimmed.startsWith('#')) continue
       const eq = trimmed.indexOf('=')
-      if (eq > 0) result[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim()
+      if (eq > 0) result[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, '')
     }
   } catch { /* config 不存在时使用默认值 */ }
   return result

@@ -55,13 +55,19 @@ const REGIMEN_LABELS: string[] = [
 
 const DIST_LABELS: string[] = ['Dist1', 'Dist2', 'Dist3', 'Dist4', 'Dist5', 'Dist6'];
 
-const HT_STAT_LABELS: string[] = ['HP', '攻击', '防御', '特攻', '特防', '速度'];
-
 const GenSpecificTab: React.FC<Props> = ({ pokemon, onChange }) => {
   const { t } = useTranslation('editor');
   const et = (key: string, defaultValue: string, options?: Record<string, unknown>) =>
     t(key, { defaultValue, ...(options ?? {}) });
   const ch = () => onChange?.();
+  const htStatLabels: string[] = [
+    'HP',
+    t('stats.atkShort', 'ATK'),
+    t('stats.defShort', 'DEF'),
+    t('stats.spaShort', 'SPA'),
+    t('stats.spdShort', 'SPD'),
+    t('stats.speShort', 'SPE'),
+  ];
 
   // ── ShinyLeaf bitfield helpers ──
   const shinyVal = pokemon.shinyLeaf ?? 0;
@@ -161,7 +167,9 @@ const GenSpecificTab: React.FC<Props> = ({ pokemon, onChange }) => {
           </div>
           <div style={rowStyle}>
             <span style={labelStyle}>{et('genspecific.shadowState', '暗黑状态')}</span>
-            <Tag color={pokemon.isShadow ? 'red' : 'green'}>{pokemon.isShadow ? '是' : '否'}</Tag>
+            <Tag color={pokemon.isShadow ? 'red' : 'green'}>
+              {pokemon.isShadow ? t('yes', { ns: 'common', defaultValue: '是' }) : t('no', { ns: 'common', defaultValue: '否' })}
+            </Tag>
           </div>
         </div>
       )}
@@ -177,7 +185,7 @@ const GenSpecificTab: React.FC<Props> = ({ pokemon, onChange }) => {
             <Space size="small">
               {leafBits.map((on, i) => (
                 <Checkbox key={i} checked={on} onChange={() => toggleLeaf(i)}>
-                  叶{i + 1}
+                  {et('genspecific.leafIndex', '叶{{index}}', { index: i + 1 })}
                 </Checkbox>
               ))}
             </Space>
@@ -185,9 +193,9 @@ const GenSpecificTab: React.FC<Props> = ({ pokemon, onChange }) => {
           <div style={rowStyle}>
             <span style={labelStyle}>{et('genspecific.crown', '皇冠')}</span>
             <Checkbox checked={crownBit} onChange={toggleCrown}>
-              Shiny Crown
+              {et('genspecific.shinyCrown', 'Shiny Crown')}
             </Checkbox>
-            {crownBit && <Tag color="gold" style={{ marginLeft: 8 }}>👑 皇冠</Tag>}
+            {crownBit && <Tag color="gold" style={{ marginLeft: 8 }}>{et('genspecific.crownBadge', '👑 皇冠')}</Tag>}
           </div>
           <div style={rowStyle}>
             <span style={labelStyle}>{et('genspecific.rawValue', '原始值')}</span>
@@ -279,7 +287,7 @@ const GenSpecificTab: React.FC<Props> = ({ pokemon, onChange }) => {
           <div style={rowStyle}>
             <span style={labelStyle}>{et('genspecific.completeAll', '完成全部特训')}</span>
             <Tag color={pokemon.superTrainSupremelyTrained ? 'green' : 'default'}>
-              {pokemon.superTrainSupremelyTrained ? '是' : '否'}
+              {pokemon.superTrainSupremelyTrained ? t('yes', { ns: 'common', defaultValue: '是' }) : t('no', { ns: 'common', defaultValue: '否' })}
             </Tag>
           </div>
 
@@ -329,7 +337,7 @@ const GenSpecificTab: React.FC<Props> = ({ pokemon, onChange }) => {
             </Space>
           </div>
           <Space size="middle">
-            {HT_STAT_LABELS.map((label, i) => (
+            {htStatLabels.map((label, i) => (
               <Checkbox
                 key={i}
                 checked={htFlags[i] ?? false}

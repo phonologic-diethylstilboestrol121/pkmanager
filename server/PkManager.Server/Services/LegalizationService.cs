@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using PKHeX.Core;
 using PkManager.Server.Helpers;
+using PkManager.Server.Localization;
 using PkManager.Server.Models.Request;
 using PkManager.Server.Models.Response;
 
@@ -16,13 +17,21 @@ public class LegalizationService
     private readonly PokemonEditService _editService;
     private readonly ParseService _parseService;
     private readonly IPkhexStringProvider _pkhexStrings;
+    private readonly IBackendMessageLocalizer _messages;
 
-    public LegalizationService(PokemonEditService editService, ParseService parseService, IPkhexStringProvider pkhexStrings)
+    public LegalizationService(
+        PokemonEditService editService,
+        ParseService parseService,
+        IPkhexStringProvider pkhexStrings,
+        IBackendMessageLocalizer messages)
     {
         _editService = editService;
         _parseService = parseService;
         _pkhexStrings = pkhexStrings;
+        _messages = messages;
     }
+
+    private string Text(string key, params object?[] args) => _messages.Get(key, args);
 
     // ── URL 获取辅助 ──────────────────────────────────────
 
@@ -42,7 +51,7 @@ public class LegalizationService
         if (!isUrl)
             return (input, null);
 
-        return (null, "无法获取链接内容，请检查链接或网络后重试");
+        return (null, null);
     }
 
     // ── Showdown 导入 ──────────────────────────────────────
@@ -57,6 +66,8 @@ public class LegalizationService
         var (resolvedText, urlError) = ResolveUrl(request.ShowdownText);
         if (urlError != null)
             return (null, urlError, null);
+        if (resolvedText == null)
+            return (null, Text("legalize.urlFetchFailed"), null);
 
         List<ShowdownSet> sets;
         try
@@ -65,15 +76,15 @@ public class LegalizationService
         }
         catch (Exception ex)
         {
-            return (null, $"Showdown 格式解析失败: {ex.Message}", null);
+            return (null, Text("legalize.showdownParseFailed", ex.Message), null);
         }
 
         if (sets.Count == 0)
-            return (null, "未识别到有效的 Showdown 格式文本", null);
+            return (null, Text("legalize.showdownTextInvalid"), null);
 
         var set = sets[0];
         if (set.Species == 0)
-            return (null, "无法识别物种名称，请检查拼写", null);
+            return (null, Text("legalize.speciesUnrecognized"), null);
 
         // 2. 创建空白 PKM 并投影 ShowdownSet 字段
         var pk = EntityBlank.GetBlank(trainerInfo);
@@ -98,13 +109,13 @@ public class LegalizationService
             {
                 var slot = MapAbilityIdToSlot(set.Ability, pk.PersonalInfo);
                 if (slot == null)
-                    return (null, $"特性 #{set.Ability} 不适用于该物种", null);
+                    return (null, Text("legalize.abilityNotApplicable", set.Ability), null);
                 PokemonEditService.ApplyAbilitySelection(pk, set.Ability, slot.Value);
             }
         }
         catch (Exception ex)
         {
-            return (null, $"字段投影失败: {ex.Message}", null);
+            return (null, Text("legalize.fieldProjectionFailed", ex.Message), null);
         }
 
         // 3. 获取招式列表
@@ -119,7 +130,7 @@ public class LegalizationService
         }
         catch (Exception ex)
         {
-            return (null, $"遭遇搜索失败: {ex.Message}", null);
+            return (null, Text("legalize.encounterSearchFailed", ex.Message), null);
         }
 
         // 5. 逐个尝试生成
@@ -148,7 +159,7 @@ public class LegalizationService
             }
         }
 
-        return (null, "未找到合法遭遇模板，请检查物种、招式组合或目标版本", null);
+        return (null, Text("legalize.noEncounterTemplate"), null);
     }
 
     // ── 模板生成 ────────────────────────────────────────────
@@ -181,7 +192,7 @@ public class LegalizationService
         {
             var slot = MapAbilityIdToSlot(request.Ability.Value, blank.PersonalInfo);
             if (slot == null)
-                return (null, "请求的特性不适用于该物种", changes);
+                return (null, Text("legalize.requestedAbilityNotApplicable"), changes);
             criteria = criteria with { Ability = SlotToAbilityPermission(slot.Value) };
         }
 
@@ -199,7 +210,7 @@ public class LegalizationService
         }
         catch (Exception ex)
         {
-            return (null, $"遭遇搜索失败: {ex.Message}", changes);
+            return (null, Text("legalize.encounterSearchFailed", ex.Message), changes);
         }
 
         // 5. 逐个尝试生成
@@ -254,7 +265,7 @@ public class LegalizationService
             }
         }
 
-        return (null, "未找到合法遭遇模板，请调整物种、招式或目标版本", changes);
+        return (null, Text("legalize.noEncounterTemplateAdjust"), changes);
     }
 
     // ── 自动修复 ────────────────────────────────────────────
@@ -518,6 +529,8 @@ public class LegalizationService
         var (resolvedText, urlError) = ResolveUrl(text);
         if (urlError != null)
             throw new BusinessException(urlError);
+        if (resolvedText == null)
+            throw BusinessException.FromKey("legalize.urlFetchFailed", 400);
 
         var sets = ShowdownParsing.GetShowdownSets(resolvedText!).ToList();
         var strings = _pkhexStrings.GetStrings();
@@ -780,7 +793,7 @@ public class LegalizationService
         }
         catch (Exception ex)
         {
-            throw new BusinessException($"遭遇搜索失败: {ex.Message}", 400);
+            throw BusinessException.FromKey("legalize.encounterSearchFailed", 400, ex.Message);
         }
 
         // 3. 准备过滤条件
@@ -824,12 +837,12 @@ public class LegalizationService
         {
             var data = Convert.FromBase64String(request.PkmDataBase64);
             pkm = EntityFormat.GetFromBytes(data)
-                ?? throw new BusinessException("无法解析宝可梦数据", 400);
+                ?? throw BusinessException.FromKey("legalize.parsePokemonFailed", 400);
         }
         catch (BusinessException) { throw; }
         catch (Exception ex)
         {
-            throw new BusinessException($"宝可梦数据解析失败: {ex.Message}", 400);
+            throw BusinessException.FromKey("legalize.parsePokemonDetailedFailed", 400, ex.Message);
         }
 
         // 2. 应用当前编辑面板快照
@@ -839,14 +852,14 @@ public class LegalizationService
         }
         catch (Exception ex)
         {
-            throw new BusinessException($"应用编辑状态失败: {ex.Message}", 400);
+            throw BusinessException.FromKey("legalize.applyEditStateFailed", 400, ex.Message);
         }
 
         // 3. 定位遭遇
         var enc = RecomputeEncounter(request.RecomputeToken, trainerInfo, request.SaveFileId);
         if (enc == null)
         {
-            result.Error = "无法定位遭遇模板（搜索结果可能已过期，请重新搜索）";
+            result.Error = Text("legalize.encounterTemplateExpired");
             return result;
         }
 
@@ -868,11 +881,11 @@ public class LegalizationService
         // 1. 定位遭遇
         var enc = RecomputeEncounter(request.RecomputeToken, trainerInfo, request.SaveFileId);
         if (enc == null)
-            return (null, "无法定位遭遇模板（搜索结果可能已过期，请重新搜索）");
+            return (null, Text("legalize.encounterTemplateExpired"));
 
         // 2. 检查是否可转换
         if (enc is not IEncounterConvertible convertible)
-            return (null, $"该遭遇类型 ({enc.GetType().Name}) 不支持生成宝可梦");
+            return (null, Text("legalize.encounterTypeUnsupported", enc.GetType().Name));
 
         // 3. 构建 EncounterCriteria
         var criteria = EncounterCriteria.Unrestricted;
@@ -891,11 +904,11 @@ public class LegalizationService
         {
             pkm = convertible.ConvertToPKM(trainerInfo, criteria);
             if (pkm == null)
-                return (null, "遭遇模板生成失败（ConvertToPKM 返回 null）");
+                return (null, Text("legalize.encounterConvertNull"));
         }
         catch (Exception ex)
         {
-            return (null, $"遭遇模板生成异常: {ex.Message}");
+            return (null, Text("legalize.encounterGenerateException", ex.Message));
         }
 
         return (pkm, null);
@@ -1178,12 +1191,12 @@ public class LegalizationService
         {
             var json = Encoding.UTF8.GetString(Convert.FromBase64String(token));
             return JsonSerializer.Deserialize<EncounterTokenData>(json)
-                ?? throw new BusinessException("Token 反序列化失败", 400);
+                ?? throw BusinessException.FromKey("legalize.tokenDeserializeFailed", 400);
         }
         catch (BusinessException) { throw; }
         catch (Exception ex)
         {
-            throw new BusinessException($"Token 解析失败: {ex.Message}", 400);
+            throw BusinessException.FromKey("legalize.tokenParseFailed", 400, ex.Message);
         }
     }
 

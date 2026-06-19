@@ -1,0 +1,222 @@
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:21:    private const string NewGameSaveSkippedMessage = "未检测到游戏内有效存档，已跳过同步";
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:74:        if (!Directory.Exists(_romDir)) return BadRequest(ApiResponse<object>.Error(400, $"ROM目录不存在: {_romDir}"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:78:            {"红宝石", ("pkm_ruby", "宝可梦 红宝石", 3)}, {"蓝宝石", ("pkm_sapphire", "宝可梦 蓝宝石", 3)},
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:79:            {"绿宝石", ("pkm_emerald", "宝可梦 绿宝石", 3)}, {"火红", ("pkm_firered", "宝可梦 火红", 3)},
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:80:            {"叶绿", ("pkm_leafgreen", "宝可梦 叶绿", 3)},
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:82:            {"钻石", ("pkm_diamond", "宝可梦 钻石", 4)}, {"珍珠", ("pkm_pearl", "宝可梦 珍珠", 4)},
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:83:            {"白金", ("pkm_platinum", "宝可梦 白金", 4)}, {"金心", ("pkm_heartgold", "宝可梦 心金", 4)},
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:84:            {"魂银", ("pkm_soulsilver", "宝可梦 魂银", 4)},
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:86:            {"黑2", ("pkm_black2", "宝可梦 黑2", 5)}, {"白2", ("pkm_white2", "宝可梦 白2", 5)},
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:87:            {"黑", ("pkm_black", "宝可梦 黑", 5)}, {"白", ("pkm_white", "宝可梦 白", 5)},
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:177:            await _saveFileService.CreateBackup(saveFileId, userId.Value, "同步前自动备份");
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:249:            await _saveFileService.CreateBackup(saveFileId, userId.Value, "同步前自动备份");
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:438:                result["error"] = "未配置 Azahar 路径，请前往设置页配置";
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:457:                result["error"] = "未配置 DeSmuME 路径，请前往设置页配置";
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:470:                result["error"] = "未找到 ROM 文件，请先导入";
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:491:        if (save == null) return NotFound(ApiResponse<object>.Error(404, "存档不存在"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:501:            return BadRequest(ApiResponse<object>.Error(400, "存档文件不存在"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:506:        await _saveFileService.CreateBackup(saveFileId, userId.Value, "启动本地模拟器前");
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:520:                return BadRequest(ApiResponse<object>.Error(400, "未配置 Azahar 路径，请前往 /settings 设置"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:536:                return BadRequest(ApiResponse<object>.Error(400, "未配置 DeSmuME 路径，请前往 /settings 设置"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:543:            if (rom == null) return BadRequest(ApiResponse<object>.Error(400, "未找到对应 NDS ROM，请先导入"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:573:        }, "启动包已就绪，请由浏览器端调起模拟器"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:601:            return BadRequest(ApiResponse<object>.Error(400, "存档文件不存在"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:612:                return BadRequest(ApiResponse<object>.Error(400, "未配置 Azahar 路径"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:624:                return BadRequest(ApiResponse<object>.Error(400, "未配置 DeSmuME 路径"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:629:            if (rom == null) return BadRequest(ApiResponse<object>.Error(400, "未找到 ROM"));
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/EmulatorController.cs:765:        await _saveFileService.CreateBackup(saveFileId, userId.Value, "从本地模拟器同步");
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/SaveFileController.cs:163:        await _saveFileService.CreateBackup(id, userId.Value, "手动保存");
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/SaveFileController.cs:512:        "species" => "物种编号",
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/SaveFileController.cs:513:        "level" => "等级",
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/SaveFileController.cs:514:        "shiny" => "闪光优先",
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/SaveFileController.cs:515:        "name" => "名称",
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/SaveFileController.cs:516:        _ => "指定方式",
+/home/fmangela/pkmanager/server/PkManager.Server/Program.cs:189:        COMMENT ON COLUMN users.preferred_lang IS '账号级界面语言偏好';
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/PokemonController.cs:89:            await _saveFileService.CreateBackup(request.SaveFileId, userId.Value, "编辑前自动备份");
+/home/fmangela/pkmanager/server/PkManager.Server/Controllers/PokemonController.cs:635:                    new EncounterGenerateResultDto { Success = false, Error = "宝可梦格式与目标存档不兼容" },
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:464:            id > 0 && id < strings.Item.Count ? strings.Item[id] : $"道具{id}";
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:469:            EvolutionType.LevelUp => m.Level > 1 ? $"等级{m.Level}以上" : "升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:470:            EvolutionType.LevelUpFriendship => $"亲密度升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:471:            EvolutionType.LevelUpFriendshipMorning => $"亲密度升级·白天 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:472:            EvolutionType.LevelUpFriendshipNight => $"亲密度升级·夜晚 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:473:            EvolutionType.LevelUpATK => $"攻击＞防御时升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:474:            EvolutionType.LevelUpAeqD => $"攻击＝防御时升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:475:            EvolutionType.LevelUpDEF => $"防御＞攻击时升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:476:            EvolutionType.LevelUpECl5 => $"随机EC＜5升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:477:            EvolutionType.LevelUpECgeq5 => $"随机EC≥5升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:478:            EvolutionType.LevelUpMale => $"♂ 升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:479:            EvolutionType.LevelUpFemale => $"♀ 升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:480:            EvolutionType.LevelUpKnowMove => $"习得{m.Argument}后升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:481:            EvolutionType.LevelUpBeauty => $"美丽度{m.Argument}+升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:482:            EvolutionType.LevelUpVersion => $"特定版本升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:483:            EvolutionType.LevelUpVersionDay => $"特定版本白天升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:484:            EvolutionType.LevelUpVersionNight => $"特定版本夜晚升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:485:            EvolutionType.LevelUpMorning => $"白天升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:486:            EvolutionType.LevelUpNight => $"夜晚升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:487:            EvolutionType.LevelUpDusk => $"黄昏升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:488:            EvolutionType.LevelUpElectric => $"电气石洞穴升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:489:            EvolutionType.LevelUpForest => $"森林升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:490:            EvolutionType.LevelUpCold => $"寒冷地带升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:491:            EvolutionType.LevelUpSummit => $"山顶升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:492:            EvolutionType.LevelUpWormhole => $"究极之洞升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:495:            EvolutionType.UseItem => $"使用{ItemName(m.Argument)}",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:496:            EvolutionType.UseItemMale => $"♂ 使用{ItemName(m.Argument)}",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:497:            EvolutionType.UseItemFemale => $"♀ 使用{ItemName(m.Argument)}",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:498:            EvolutionType.UseItemWormhole => $"究极之洞使用{ItemName(m.Argument)}",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:499:            EvolutionType.UseItemFullMoon => $"满月之夜使用{ItemName(m.Argument)}",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:502:            EvolutionType.Trade => "通讯交换",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:503:            EvolutionType.TradeHeldItem => $"通讯交换 (携带{ItemName(m.Argument)})",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:504:            EvolutionType.TradeShelmetKarrablast => "通讯交换 (盖盖虫/小嘴蜗)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:507:            EvolutionType.LevelUpWithTeammate => $"同行有特定宝可梦时升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:508:            EvolutionType.LevelUpHeldItemDay => $"白天携带{ItemName(m.Argument)}升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:509:            EvolutionType.LevelUpHeldItemNight => $"夜晚携带{ItemName(m.Argument)}升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:510:            EvolutionType.LevelUpNatureAmped => $"昂扬性格升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:511:            EvolutionType.LevelUpNatureLowKey => $"低调性格升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:512:            EvolutionType.LevelUpFormFemale1 => $"♀特定形态升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:513:            EvolutionType.LevelUpAffection50MoveType => $"友好度+特定招式升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:514:            EvolutionType.LevelUpMoveType => $"特定属性招式升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:515:            EvolutionType.LevelUpWeather => $"特定天气升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:516:            EvolutionType.LevelUpInverted => $"倒置升级 (Lv.{m.Level}+)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:517:            EvolutionType.TowerOfDarkness => "恶之塔",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:518:            EvolutionType.TowerOfWaters => "水之塔",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:519:            EvolutionType.CriticalHitsInBattle => "3次击中要害后升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:520:            EvolutionType.HitPointsLostInBattle => "受到特定HP损伤后升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:521:            EvolutionType.Spin => "旋转进化",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:522:            EvolutionType.Hisui => "洗翠地区进化",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:523:            EvolutionType.UseMoveAgileStyle => "使用迅疾招式",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:524:            EvolutionType.UseMoveStrongStyle => "使用刚猛招式",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:525:            EvolutionType.UseMoveBarbBarrage => "使用千针鱼招式",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:526:            EvolutionType.LevelUpWalkStepsWith => $"行走{m.Argument}步后升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:527:            EvolutionType.LevelUpUnionCircle => "联盟集友圈升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:528:            EvolutionType.LevelUpInBattleEC100 => "战斗中升级 (特定EC)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:529:            EvolutionType.LevelUpInBattleECElse => "战斗中升级 (其他EC)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:530:            EvolutionType.LevelUpCollect999 => $"收集{m.Argument}×999后升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:531:            EvolutionType.LevelUpDefeatEquals => "击败特定宝可梦后升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:532:            EvolutionType.LevelUpUseMoveSpecial => "使用特定招式后升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:533:            EvolutionType.LevelUpKnowMoveECElse => "习得招式后升级 (其他EC)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:534:            EvolutionType.LevelUpKnowMoveEC100 => "习得招式后升级 (特定EC)",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:535:            EvolutionType.LevelUpRecoilDamageMale => "♂受到反伤后升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:536:            EvolutionType.LevelUpRecoilDamageFemale => "♀受到反伤后升级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/EvolutionService.cs:538:            _ => $"特殊进化[{m.Method}]",
+/home/fmangela/pkmanager/client/src/components/LanguageSwitcher.tsx:9:  'zh-Hans': '简体中文',
+/home/fmangela/pkmanager/client/src/components/LanguageSwitcher.tsx:10:  'zh-Hant': '繁體中文',
+/home/fmangela/pkmanager/client/src/components/LanguageSwitcher.tsx:12:  ja: '日本語',
+/home/fmangela/pkmanager/server/PkManager.Server/Services/BankService.cs:673:                    Status = LegalityStatus.Illegal, FirstIssue = "缺少PKM数据"
+/home/fmangela/pkmanager/server/PkManager.Server/Services/BankService.cs:703:                    Status = LegalityStatus.Illegal, FirstIssue = "PKM解析失败"
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:309:            result.Report = "无法匹配合法遭遇模板";
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:687:            return "存在不合法招式";
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:689:            return "存在不合法回忆招式";
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:701:        var comment = $"{id}校验失败";
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:713:        CheckIdentifier.Encounter => "遭遇",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:714:        CheckIdentifier.CurrentMove => "当前招式",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:715:        CheckIdentifier.RelearnMove => "回忆招式",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:716:        CheckIdentifier.Shiny => "闪光",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:717:        CheckIdentifier.Gender => "性别",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:718:        CheckIdentifier.Language => "语言",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:719:        CheckIdentifier.Nickname => "昵称",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:720:        CheckIdentifier.Trainer => "训练家",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:721:        CheckIdentifier.Level => "等级",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:722:        CheckIdentifier.Ball => "球种",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:723:        CheckIdentifier.Memory => "记忆",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:724:        CheckIdentifier.Geography => "地理",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:725:        CheckIdentifier.Form => "形态",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:726:        CheckIdentifier.Egg => "蛋",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:727:        CheckIdentifier.Misc => "杂项",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:728:        CheckIdentifier.Fateful => "命运邂逅",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:729:        CheckIdentifier.Ribbon => "缎带",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:730:        CheckIdentifier.Training => "训练",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:731:        CheckIdentifier.Ability => "特性",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:732:        CheckIdentifier.Evolution => "进化",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:733:        CheckIdentifier.Nature => "性格",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:734:        CheckIdentifier.GameOrigin => "来源版本",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:735:        CheckIdentifier.HeldItem => "持有道具",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:736:        CheckIdentifier.RibbonMark => "证章",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/LegalizationService.cs:737:        CheckIdentifier.Marking => "标记",
+/home/fmangela/pkmanager/client/src/components/bank/BankEditDrawer.tsx:371:              label: `${s.filename} (${s.trainerName || '?'} · ${s.gameVersionName || `Gen${s.generation}`} · ${s.pokemonCount}只)`,
+/home/fmangela/pkmanager/server/PkManager.Server/Services/ParseService.cs:72:            { 131072, "GBA (128KB) — 红/蓝/绿宝石、火红/叶绿" },
+/home/fmangela/pkmanager/server/PkManager.Server/Services/ParseService.cs:73:            { 524288, "NDS (512KB) — 珍珠/钻石/白金/心金/魂银/黑/白" },
+/home/fmangela/pkmanager/server/PkManager.Server/Services/ParseService.cs:74:            { 1048576, "3DS (1MB) — X/Y/OR/AS/太阳/月亮" },
+/home/fmangela/pkmanager/server/PkManager.Server/Services/ParseService.cs:78:            ? $"（识别为 {knownSizes[saveData.Length]} 存档）"
+/home/fmangela/pkmanager/server/PkManager.Server/Services/ParseService.cs:79:            : $"（文件大小 {saveData.Length} 字节，常见大小: {string.Join(", ", knownSizes.Select(k => $"{k.Key}"))}）";
+/home/fmangela/pkmanager/server/PkManager.Server/Services/ParseService.cs:253:            var moveName = GetSafeString(moveStrings, moveId, $"招式{moveId}");
+/home/fmangela/pkmanager/server/PkManager.Server/Services/ParseService.cs:478:        1 => "日本語", 2 => "English", 3 => "Français", 4 => "Italiano",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/ParseService.cs:480:        9 => "简体中文", 10 => "繁體中文",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:230:            "pkm_sapphire" => (generation: 3, version: 1, name: "宝可梦 蓝宝石"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:231:            "pkm_ruby" => (generation: 3, version: 2, name: "宝可梦 红宝石"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:232:            "pkm_emerald" => (generation: 3, version: 3, name: "宝可梦 绿宝石"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:233:            "pkm_firered" => (generation: 3, version: 4, name: "宝可梦 火红"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:234:            "pkm_leafgreen" => (generation: 3, version: 5, name: "宝可梦 叶绿"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:235:            "pkm_diamond" => (generation: 4, version: 10, name: "宝可梦 钻石"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:236:            "pkm_pearl" => (generation: 4, version: 11, name: "宝可梦 珍珠"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:237:            "pkm_platinum" => (generation: 4, version: 12, name: "宝可梦 白金"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:238:            "pkm_heartgold" => (generation: 4, version: 7, name: "宝可梦 心金"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:239:            "pkm_soulsilver" => (generation: 4, version: 8, name: "宝可梦 魂银"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:240:            "pkm_white" => (generation: 5, version: 20, name: "宝可梦 白"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:241:            "pkm_black" => (generation: 5, version: 21, name: "宝可梦 黑"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:242:            "pkm_white2" => (generation: 5, version: 22, name: "宝可梦 白2"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:243:            "pkm_black2" => (generation: 5, version: 23, name: "宝可梦 黑2"),
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:551:            new { Id = backupId, SfId = saveFileId, Label = label ?? $"备份 {DateTime.Now:yyyy-MM-dd HH:mm}", Path = backupPath, Data = Array.Empty<byte>() });
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:578:        await CreateBackup(saveFileId, userId, "恢复前自动备份");
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:840:            return (0, false, "Pokémon Legends: Arceus 的研究任务体系暂不支持，请使用 PKHeX 桌面版编辑图鉴");
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1131:                    Key = "initial", Label = "初始时钟",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1137:                    Key = "elapsed", Label = "已流逝时钟",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1305:                [0] = "官方宝可梦训练家", [1] = "美乐美乐考验完成", [2] = "阿卡拉考验完成",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1306:                [3] = "乌拉乌拉考验完成", [4] = "波尼考验完成", [5] = "岛屿巡礼完成",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1307:                [6] = "美乐美乐图鉴完成", [7] = "阿卡拉图鉴完成", [8] = "乌拉乌拉图鉴完成",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1308:                [9] = "波尼图鉴完成", [10] = "阿罗拉图鉴完成",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1309:                [11] = "单打连胜 50", [12] = "双打连胜 50", [13] = "多人连胜 50",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1310:                [14] = "宝可搜寻镜专家",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1466:        1 => "日本語",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1473:        9 => "简体中文",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1474:        10 => "繁體中文",
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1483:        string[] kanto = ["灰色徽章", "蓝色徽章", "橙色徽章", "彩虹徽章", "粉色徽章", "金色徽章", "深红徽章", "绿色徽章"];
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1485:        string[] johto = ["飞翼徽章", "昆虫徽章", "普通徽章", "鬼魂徽章", "打击徽章", "矿物徽章", "冰河徽章", "升龙徽章"];
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1487:        string[] hoenn = ["岩石徽章", "拳击徽章", "电力徽章", "火焰徽章", "天平徽章", "羽毛徽章", "心灵徽章", "雨滴徽章"];
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1489:        string[] sinnoh = ["石炭徽章", "森林徽章", "圆石徽章", "沼泽徽章", "遗迹徽章", "矿山徽章", "冰柱徽章", "灯塔徽章"];
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1491:        string[] kalos = ["虫虫徽章", "岩壁徽章", "格斗徽章", "植物徽章", "电压徽章", "妖精徽章", "超能徽章", "冰山徽章"];
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1493:        string[] galar = ["草之徽章", "水之徽章", "火之徽章", "格斗徽章", "妖精徽章", "岩石徽章", "恶之徽章", "龙之徽章"];
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1558:        await CreateBackup(sf.Id, userId, "编辑前自动备份");
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1796:                ? $"同行 · 槽 {slotIndex + 1}"
+/home/fmangela/pkmanager/server/PkManager.Server/Services/SaveFileService.cs:1797:                : $"Box {boxIndex!.Value + 1} · 槽 {slotIndex + 1}",
+/home/fmangela/pkmanager/client/src/components/editor/StatsTab.tsx:17:    '格斗', '飞行', '毒', '地面', '岩石', '虫', '幽灵', '钢',
+/home/fmangela/pkmanager/client/src/components/editor/StatsTab.tsx:18:    '火', '水', '草', '电', '超能力', '冰', '龙', '恶',
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/LoginRequest.cs:7:    [Required(ErrorMessage = "用户名不能为空")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/LoginRequest.cs:8:    [MinLength(3, ErrorMessage = "用户名至少3个字符")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/LoginRequest.cs:9:    [MaxLength(50, ErrorMessage = "用户名最多50个字符")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/LoginRequest.cs:12:    [Required(ErrorMessage = "密码不能为空")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/LoginRequest.cs:13:    [MinLength(8, ErrorMessage = "密码至少8个字符")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/RegisterRequest.cs:7:    [Required(ErrorMessage = "用户名不能为空")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/RegisterRequest.cs:8:    [MinLength(3, ErrorMessage = "用户名至少3个字符")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/RegisterRequest.cs:9:    [MaxLength(50, ErrorMessage = "用户名最多50个字符")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/RegisterRequest.cs:12:    [Required(ErrorMessage = "邮箱不能为空")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/RegisterRequest.cs:13:    [EmailAddress(ErrorMessage = "邮箱格式不正确")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/RegisterRequest.cs:14:    [MaxLength(255, ErrorMessage = "邮箱最多255个字符")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/RegisterRequest.cs:17:    [Required(ErrorMessage = "密码不能为空")]
+/home/fmangela/pkmanager/server/PkManager.Server/Models/Request/RegisterRequest.cs:18:    [MinLength(6, ErrorMessage = "密码至少6个字符")]
+/home/fmangela/pkmanager/client/src/lib/inputUtil.ts:14:  12: '↑上',
+/home/fmangela/pkmanager/client/src/lib/inputUtil.ts:15:  13: '↓下',
+/home/fmangela/pkmanager/client/src/lib/inputUtil.ts:16:  14: '←左',
+/home/fmangela/pkmanager/client/src/lib/inputUtil.ts:17:  15: '→右',
+/home/fmangela/pkmanager/client/src/lib/mgba.ts:78:            reject(new Error('mGBA cheats API 不可用'));
+/home/fmangela/pkmanager/client/src/lib/windowsLauncherScript.ts:72:        10 { return @("diamond", "钻石") }
+/home/fmangela/pkmanager/client/src/lib/windowsLauncherScript.ts:73:        11 { return @("pearl", "珍珠") }
+/home/fmangela/pkmanager/client/src/lib/windowsLauncherScript.ts:74:        12 { return @("platinum", "白金") }
+/home/fmangela/pkmanager/client/src/lib/windowsLauncherScript.ts:75:        7  { return @("heartgold", "心金") }
+/home/fmangela/pkmanager/client/src/lib/windowsLauncherScript.ts:76:        8  { return @("soulsilver", "魂银") }
+/home/fmangela/pkmanager/client/src/lib/windowsLauncherScript.ts:77:        20 { return @("white", "白") }
+/home/fmangela/pkmanager/client/src/lib/windowsLauncherScript.ts:78:        21 { return @("black", "黑") }
+/home/fmangela/pkmanager/client/src/lib/windowsLauncherScript.ts:79:        22 { return @("white2", "白2") }
+/home/fmangela/pkmanager/client/src/lib/windowsLauncherScript.ts:80:        23 { return @("black2", "黑2") }
+/home/fmangela/pkmanager/client/src/components/editor/MovesTab.tsx:44:  const moveOptions = [{ value: 0, label: '— 无 —' }, ...baseMoves.map(m => ({ value: m.id, label: m.name }))];
+/home/fmangela/pkmanager/client/src/lib/melonds.ts:118:  DPAD_UP: '↑上', DPAD_DOWN: '↓下', DPAD_LEFT: '←左', DPAD_RIGHT: '→右',
+/home/fmangela/pkmanager/client/src/lib/localLaunch.ts:169:    || `未检测到一键启动协议，已下载启动脚本（${fileName}）。运行该脚本以注入存档、启动模拟器，并在退出后自动同步。`,
+/home/fmangela/pkmanager/client/src/pages/Dashboard.tsx:48:        message: '加载存档列表失败',
+/home/fmangela/pkmanager/client/src/App.tsx:55:          store.log({ category: 'health', level: 'info', message: 'API 可达' });
+/home/fmangela/pkmanager/client/src/App.tsx:61:            message: `API 返回状态 ${r.status}`,
+/home/fmangela/pkmanager/client/src/App.tsx:70:          message: `API 不可达: ${err.message}`,
+/home/fmangela/pkmanager/client/src/App.tsx:87:          store.log({ category: 'health', level: 'info', message: 'Auth Token 有效' });
+/home/fmangela/pkmanager/client/src/App.tsx:93:            message: `Auth Token 验证失败: ${err.response?.status || err.message}`,
+/home/fmangela/pkmanager/client/src/App.tsx:150:                      <LazyRoute name="gba-emulator" fallback="加载模拟器...">
+/home/fmangela/pkmanager/client/src/App.tsx:160:                      <LazyRoute name="gba-emulator-new" fallback="加载模拟器 (新游戏)...">
+/home/fmangela/pkmanager/client/src/App.tsx:170:                      <LazyRoute name="nds-emulator" fallback="加载 NDS 模拟器...">
+/home/fmangela/pkmanager/client/src/App.tsx:180:                      <LazyRoute name="nds-emulator-new" fallback="加载 NDS 模拟器 (新游戏)...">

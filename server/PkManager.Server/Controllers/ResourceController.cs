@@ -10,7 +10,7 @@ namespace PkManager.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ResourceController : ControllerBase
+public class ResourceController : LocalizedControllerBase
 {
     private readonly UserContext _userContext;
     private readonly NpgsqlConnection _db;
@@ -55,7 +55,7 @@ public class ResourceController : ControllerBase
     public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Species([FromQuery] int? generation, [FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
 
         // 优先从 DB 读取
         var langCode = ResolveLang(lang);
@@ -86,7 +86,7 @@ public class ResourceController : ControllerBase
     public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Moves([FromQuery] int? generation, [FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
 
         var langCode = ResolveLang(lang);
         var items = (await _db.QueryAsync<ResourceItem>(
@@ -116,7 +116,7 @@ public class ResourceController : ControllerBase
     public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Abilities([FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
 
         var langCode = ResolveLang(lang);
         var items = (await _db.QueryAsync<ResourceItem>(
@@ -146,7 +146,7 @@ public class ResourceController : ControllerBase
     public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Natures([FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
 
         var langCode = ResolveLang(lang);
         var items = (await _db.QueryAsync<ResourceItem>(
@@ -176,7 +176,7 @@ public class ResourceController : ControllerBase
     public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Items([FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
 
         var langCode = ResolveLang(lang);
         var items = (await _db.QueryAsync<ResourceItem>(
@@ -206,7 +206,7 @@ public class ResourceController : ControllerBase
     public async Task<ActionResult<ApiResponse<List<ResourceItem>>>> Balls([FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
 
         // 优先从 DB 派生（res_items 按球种 ID 取值，与 PKHeX GameStrings.balllist 构造逻辑一致）
         var langCode = ResolveLang(lang);
@@ -249,7 +249,7 @@ public class ResourceController : ControllerBase
     public ActionResult<ApiResponse<List<ResourceItem>>> Games([FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
 
         var strings = _pkhexStrings.GetStrings(ResolveLang(lang));
         var gameVersions = new[]
@@ -277,7 +277,7 @@ public class ResourceController : ControllerBase
     public ActionResult<ApiResponse<List<ResourceItem>>> GeoCountries([FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
         return Ok(ApiResponse<List<ResourceItem>>.Ok(_geoDataProvider.GetCountries(lang)));
     }
 
@@ -288,7 +288,7 @@ public class ResourceController : ControllerBase
     public ActionResult<ApiResponse<List<ResourceItem>>> GeoRegions(int countryId, [FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
         return Ok(ApiResponse<List<ResourceItem>>.Ok(_geoDataProvider.GetRegions(countryId, lang)));
     }
 
@@ -299,7 +299,7 @@ public class ResourceController : ControllerBase
     public ActionResult<ApiResponse<List<ResourceItem>>> SpeciesAbilities(int speciesId, [FromQuery] int generation = 7, [FromQuery] int form = 0, [FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
 
         try
         {
@@ -341,7 +341,7 @@ public class ResourceController : ControllerBase
     public ActionResult<ApiResponse<List<ResourceItem>>> SpeciesMoves(int speciesId, [FromQuery] int generation = 7, [FromQuery] int form = 0, [FromQuery] string? lang = null)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<List<ResourceItem>>.Error(401, "未登录"));
+            return UnauthorizedMessage<List<ResourceItem>>();
 
         try
         {
@@ -371,7 +371,7 @@ public class ResourceController : ControllerBase
     public ActionResult<ApiResponse<object>> SpeciesExperience(int speciesId, [FromQuery] int generation = 7, [FromQuery] int form = 0)
     {
         if (_userContext.UserId == null)
-            return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+            return UnauthorizedMessage<object>();
 
         try
         {

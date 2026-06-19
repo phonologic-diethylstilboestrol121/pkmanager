@@ -1,6 +1,7 @@
 using System.Text.Json;
 using PKHeX.Core;
 using PkManager.Server.Helpers;
+using PkManager.Server.Localization;
 using PkManager.Server.Models.Request;
 using PkManager.Server.Models.Response;
 
@@ -15,17 +16,25 @@ public class EvolutionService
     private readonly PokemonEditService _editService;
     private readonly ParseService _parseService;
     private readonly IPkhexStringProvider _pkhexStrings;
+    private readonly IBackendMessageLocalizer _messages;
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
     };
 
-    public EvolutionService(PokemonEditService editService, ParseService parseService, IPkhexStringProvider pkhexStrings)
+    public EvolutionService(
+        PokemonEditService editService,
+        ParseService parseService,
+        IPkhexStringProvider pkhexStrings,
+        IBackendMessageLocalizer messages)
     {
         _editService = editService;
         _parseService = parseService;
         _pkhexStrings = pkhexStrings;
+        _messages = messages;
     }
+
+    private string Text(string key, params object?[] args) => _messages.Get(key, args);
 
     /// <summary>
     /// 将前端 editSnapshot (camelCase Dictionary) 应用到 PKM。
@@ -81,7 +90,7 @@ public class EvolutionService
             var displayMethod = SelectPreferredMethod(methodGroup, pkm, out var displayResult);
 
             var destForm = targetForm != 0 && targetForm != byte.MaxValue ? targetForm : (byte)0;
-            string formName = destForm > 0 ? $"形态{destForm}" : "";
+            string formName = destForm > 0 ? $"Form {destForm}" : "";
 
             var target = (ISpeciesForm)new EvoTarget(targetSpecies, destForm);
             bool isAvailable = tree.Forward.TryEvolve(
@@ -147,7 +156,7 @@ public class EvolutionService
                 matchedMethods.Add(m);
         }
         if (matchedMethods.Count == 0)
-            return new EvolveResultDto { Success = false, Error = "目标物种不在进化路径中" };
+            return new EvolveResultDto { Success = false, Error = Text("evolution.targetNotInPath") };
 
         var method = SelectPreferredMethod(matchedMethods, pkm, out _);
 
@@ -181,7 +190,7 @@ public class EvolutionService
                 pkm.WriteDecryptedDataParty(buf);
                 shedinja = EntityFormat.GetFromBytes(buf)!;
                 if (shedinja == null)
-                    return new EvolveResultDto { Success = false, Error = "无法克隆宝可梦数据" };
+                    return new EvolveResultDto { Success = false, Error = Text("evolution.cloneFailed") };
             }
 
             shedinja.Species = 292;  // Shedinja
@@ -209,7 +218,7 @@ public class EvolutionService
             }
 
             if (!emptySlot.HasValue)
-                return new EvolveResultDto { Success = false, Error = "无空位存放脱壳忍者" };
+                return new EvolveResultDto { Success = false, Error = Text("evolution.noShedinjaSlot") };
 
             var (sBox, sSlot) = emptySlot.Value;
             var compatShedinja = sav.GetCompatiblePKM(shedinja);
@@ -220,7 +229,7 @@ public class EvolutionService
             shedinjaResult = new EvolveResultDto
             {
                 Shedinja = _parseService.MapToPokemonDto(compatShedinja),
-                ShedinjaLocation = $"箱子 {sBox + 1} 槽位 {sSlot + 1}",
+                ShedinjaLocation = $"Box {sBox + 1} Slot {sSlot + 1}",
             };
         }
 
@@ -234,17 +243,17 @@ public class EvolutionService
         if (request.IsParty)
         {
             if (request.SlotIndex < 0 || request.SlotIndex >= 6)
-                return new EvolveResultDto { Success = false, Error = "Party 槽位无效" };
+                return new EvolveResultDto { Success = false, Error = Text("evolution.invalidPartySlot") };
             compat = sav.GetCompatiblePKM(pkm);
             sav.SetPartySlotAtIndex(compat, request.SlotIndex);
         }
         else
         {
             if (request.BoxIndex < 0 || request.BoxIndex >= sav.BoxCount)
-                return new EvolveResultDto { Success = false, Error = "箱子索引无效" };
+                return new EvolveResultDto { Success = false, Error = Text("evolution.invalidBoxIndex") };
             var boxData = sav.GetBoxData(request.BoxIndex);
             if (request.SlotIndex < 0 || request.SlotIndex >= boxData.Length)
-                return new EvolveResultDto { Success = false, Error = "箱子槽位无效" };
+                return new EvolveResultDto { Success = false, Error = Text("evolution.invalidBoxSlot") };
             compat = sav.GetCompatiblePKM(pkm);
             boxData[request.SlotIndex] = compat;
             sav.SetBoxData(boxData, request.BoxIndex);
@@ -434,15 +443,15 @@ public class EvolutionService
     private static string GetBlockReason(EvolutionCheckResult result) =>
         result switch
         {
-            EvolutionCheckResult.Valid => "未知原因",
-            EvolutionCheckResult.InsufficientLevel => "等级不足",
-            EvolutionCheckResult.BadGender => "性别不符",
-            EvolutionCheckResult.BadForm => "形态不符",
-            EvolutionCheckResult.WrongEC => "加密常数不匹配",
-            EvolutionCheckResult.VisitVersion => "版本不匹配",
-            EvolutionCheckResult.LowContestStat => "选美属性不足",
-            EvolutionCheckResult.Untraded => "需要通讯交换",
-            _ => $"不满足条件({result})",
+            EvolutionCheckResult.Valid => "Unknown reason",
+            EvolutionCheckResult.InsufficientLevel => "Insufficient level",
+            EvolutionCheckResult.BadGender => "Gender does not match",
+            EvolutionCheckResult.BadForm => "Form does not match",
+            EvolutionCheckResult.WrongEC => "Encryption constant does not match",
+            EvolutionCheckResult.VisitVersion => "Version does not match",
+            EvolutionCheckResult.LowContestStat => "Contest stat is too low",
+            EvolutionCheckResult.Untraded => "Trade is required",
+            _ => $"Requirements not met ({result})",
         };
 
     /// <summary>

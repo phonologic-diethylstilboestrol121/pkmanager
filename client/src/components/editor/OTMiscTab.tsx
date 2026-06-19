@@ -3,6 +3,7 @@ import { Input, InputNumber, Select, Space } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { ApiError } from '../../api/axios';
 import type { PokemonDto } from '../../api/saveFile';
+import { getPokemonLanguageOptions } from '../../i18n/locale';
 import { resourceApi, type ResourceItem } from '../../api/resource';
 import { useDiagnosticStore } from '../../stores/diagnosticStore';
 
@@ -18,6 +19,10 @@ const OTMiscTab: React.FC<Props> = ({ pokemon, generation, onChange }) => {
     t(key, { defaultValue, ...(options ?? {}) });
   const g = generation;
   const ch = () => onChange?.();
+  const languageOptions = getPokemonLanguageOptions(t).map((option) => ({
+    value: option.value,
+    label: option.label.replace(/ \([A-Z]{3}\)$/, ''),
+  }));
   const isGen6Plus = g >= 6;
   const isGen7Plus = g >= 7;
   const isGen8Plus = g >= 8;
@@ -145,17 +150,7 @@ const OTMiscTab: React.FC<Props> = ({ pokemon, generation, onChange }) => {
                   value={pokemon.handlingTrainerLanguage}
                   onChange={(v) => { pokemon.handlingTrainerLanguage = v; ch(); }}
                   style={{ width: 120 }}
-                  options={[
-                    { value: 1, label: '日本語' },
-                    { value: 2, label: 'English' },
-                    { value: 3, label: 'Français' },
-                    { value: 4, label: 'Italiano' },
-                    { value: 5, label: 'Deutsch' },
-                    { value: 7, label: 'Español' },
-                    { value: 8, label: '한국어' },
-                    { value: 9, label: '简体中文' },
-                    { value: 10, label: '繁體中文' },
-                  ]}
+                  options={languageOptions}
                 />
               </div>
             </>

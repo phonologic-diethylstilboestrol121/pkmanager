@@ -29,10 +29,6 @@ const SZ: Record<ScreenScale, { w: number; h: number }> = { 1: { w: 256, h: 192 
 type GamepadBindingMode = 'replace' | 'add';
 
 const NDS_BTNS: DsInputButton[] = ['DPAD_UP','DPAD_DOWN','DPAD_LEFT','DPAD_RIGHT','A','B','X','Y','L','R','START','SELECT'];
-const BTN_LABEL: Record<string,string> = {
-  DPAD_UP:'↑上',DPAD_DOWN:'↓下',DPAD_LEFT:'←左',DPAD_RIGHT:'→右',
-  A:'A',B:'B',X:'X',Y:'Y',L:'L',R:'R',START:'Start',SELECT:'Select',
-};
 const DEFAULT_KEYS: Record<string,string> = {
   DPAD_UP:'ArrowUp',DPAD_DOWN:'ArrowDown',DPAD_LEFT:'ArrowLeft',DPAD_RIGHT:'ArrowRight',
   A:'KeyZ',B:'KeyX',X:'KeyA',Y:'KeyS',L:'KeyQ',R:'KeyW',START:'Enter',SELECT:'Backspace',
@@ -468,7 +464,7 @@ const NdsEmulatorPage: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
           {NDS_BTNS.map(btn => (
             <div key={btn} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#f5f5f5', borderRadius: 6, gap: 8 }}>
-              <span style={{ fontWeight: 600 }}>{buttonLabels[btn] ?? BTN_LABEL[btn]}</span>
+              <span style={{ fontWeight: 600 }}>{buttonLabels[btn] ?? btn}</span>
               <Button size="small" type={binding === btn ? 'primary' : 'default'} onClick={() => { setGamepadBindingMode('replace'); setBinding(binding === btn ? null : btn); }} style={{ minWidth: 170, textAlign: 'left', height: 'auto', whiteSpace: 'normal' }}>
                 {binding === btn ? et('keymap.capturing', '按下按键或手柄按钮...') : (
                   <span>

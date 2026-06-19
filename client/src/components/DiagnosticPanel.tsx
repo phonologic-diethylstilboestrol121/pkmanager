@@ -32,42 +32,20 @@ const { Text } = Typography;
 
 // ── Category color/config ──────────────────────────────────────────
 
-const CATEGORY_META: Record<DiagCategory, { color: string; label: string }> = {
-  api: { color: 'red', label: 'API' },
-  render: { color: 'purple', label: 'Render' },
-  wasm: { color: 'green', label: 'WASM' },
-  network: { color: 'orange', label: 'Network' },
-  auth: { color: 'gold', label: 'Auth' },
-  health: { color: 'blue', label: 'Health' },
-  unknown: { color: 'default', label: 'Unknown' },
+const CATEGORY_META: Record<DiagCategory, { color: string }> = {
+  api: { color: 'red' },
+  render: { color: 'purple' },
+  wasm: { color: 'green' },
+  network: { color: 'orange' },
+  auth: { color: 'gold' },
+  health: { color: 'blue' },
+  unknown: { color: 'default' },
 };
 
 const LEVEL_ICON: Record<DiagLevel, React.ReactNode> = {
   error: <CloseCircleOutlined style={{ color: '#ff4d4f' }} />,
   warn: <WarningOutlined style={{ color: '#faad14' }} />,
   info: <InfoCircleOutlined style={{ color: '#1677ff' }} />,
-};
-
-const HEALTH_STATUS: Record<
-  string,
-  { icon: React.ReactNode; label: string }
-> = {
-  idle: {
-    icon: <Badge status="default" />,
-    label: '检测中...',
-  },
-  ok: {
-    icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
-    label: '全部正常',
-  },
-  degraded: {
-    icon: <WarningOutlined style={{ color: '#faad14' }} />,
-    label: '部分异常',
-  },
-  down: {
-    icon: <CloseCircleOutlined style={{ color: '#ff4d4f' }} />,
-    label: '服务不可用',
-  },
 };
 
 // ── Filter state ────────────────────────────────────────────────────
@@ -87,6 +65,33 @@ const DiagnosticPanel: React.FC = () => {
   const healthStatus = useDiagnosticStore((s) => s.healthStatus);
   const clear = useDiagnosticStore((s) => s.clear);
   const exportText = useDiagnosticStore((s) => s.exportText);
+  const categoryLabels: Record<DiagCategory, string> = {
+    api: t('diagnostic.category.api', { ns: 'common', defaultValue: 'API' }),
+    render: t('diagnostic.category.render', { ns: 'common', defaultValue: 'Render' }),
+    wasm: t('diagnostic.category.wasm', { ns: 'common', defaultValue: 'WASM' }),
+    network: t('diagnostic.category.network', { ns: 'common', defaultValue: 'Network' }),
+    auth: t('diagnostic.category.auth', { ns: 'common', defaultValue: 'Auth' }),
+    health: t('diagnostic.category.health', { ns: 'common', defaultValue: 'Health' }),
+    unknown: t('diagnostic.category.unknown', { ns: 'common', defaultValue: 'Unknown' }),
+  };
+  const healthMeta: Record<string, { icon: React.ReactNode; label: string }> = {
+    idle: {
+      icon: <Badge status="default" />,
+      label: t('diagnostic.health.idle', { ns: 'common', defaultValue: '检测中...' }),
+    },
+    ok: {
+      icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
+      label: t('diagnostic.health.ok', { ns: 'common', defaultValue: '全部正常' }),
+    },
+    degraded: {
+      icon: <WarningOutlined style={{ color: '#faad14' }} />,
+      label: t('diagnostic.health.degraded', { ns: 'common', defaultValue: '部分异常' }),
+    },
+    down: {
+      icon: <CloseCircleOutlined style={{ color: '#ff4d4f' }} />,
+      label: t('diagnostic.health.down', { ns: 'common', defaultValue: '服务不可用' }),
+    },
+  };
 
   // ── Keyboard shortcut: Ctrl+Shift+D ────────────────────────────
 
@@ -158,7 +163,7 @@ const DiagnosticPanel: React.FC = () => {
 
   // ── Health indicator ─────────────────────────────────────────────
 
-  const h = HEALTH_STATUS[healthStatus] || HEALTH_STATUS.idle;
+  const h = healthMeta[healthStatus] || healthMeta.idle;
 
   // ── Render ───────────────────────────────────────────────────────
 
@@ -245,9 +250,9 @@ const DiagnosticPanel: React.FC = () => {
             onChange={(val) => setLevelFilter(val as FilterLevel)}
             options={[
               { label: `${t('all', { ns: 'common', defaultValue: '全部' })} (${entries.length})`, value: 'all' },
-              { label: `🔴 ${t('diagnostic.errors', '错误')} (${stats.error})`, value: 'error' },
-              { label: `🟡 ${t('diagnostic.warnings', '警告')} (${stats.warn})`, value: 'warn' },
-              { label: `🔵 ${t('diagnostic.info', '信息')} (${stats.info})`, value: 'info' },
+              { label: `🔴 ${t('diagnostic.errors', { ns: 'common', defaultValue: '错误' })} (${stats.error})`, value: 'error' },
+              { label: `🟡 ${t('diagnostic.warnings', { ns: 'common', defaultValue: '警告' })} (${stats.warn})`, value: 'warn' },
+              { label: `🔵 ${t('diagnostic.info', { ns: 'common', defaultValue: '信息' })} (${stats.info})`, value: 'info' },
             ]}
           />
           <Segmented
@@ -256,11 +261,11 @@ const DiagnosticPanel: React.FC = () => {
             onChange={(val) => setCategoryFilter(val as FilterCategory)}
             options={[
               { label: t('allCategories', { ns: 'common', defaultValue: '全部分类' }), value: 'all' },
-              { label: 'API', value: 'api' },
-              { label: 'Render', value: 'render' },
-              { label: 'WASM', value: 'wasm' },
-              { label: 'Network', value: 'network' },
-              { label: 'Auth', value: 'auth' },
+              { label: categoryLabels.api, value: 'api' },
+              { label: categoryLabels.render, value: 'render' },
+              { label: categoryLabels.wasm, value: 'wasm' },
+              { label: categoryLabels.network, value: 'network' },
+              { label: categoryLabels.auth, value: 'auth' },
             ]}
           />
         </div>
@@ -289,7 +294,7 @@ const DiagnosticPanel: React.FC = () => {
                         color={CATEGORY_META[entry.category]?.color}
                         style={{ fontSize: 10, lineHeight: '16px' }}
                       >
-                        {CATEGORY_META[entry.category]?.label}
+                        {categoryLabels[entry.category]}
                       </Tag>
                       {entry.count && entry.count > 1 && (
                         <Tag style={{ fontSize: 10, lineHeight: '16px' }}>

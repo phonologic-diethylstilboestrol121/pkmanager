@@ -29,7 +29,6 @@ const SZ: Record<ScreenScale, { w: number; h: number }> = { 1: { w: 240, h: 160 
 type GamepadBindingMode = 'replace' | 'add';
 
 const GBA_BTNS = ['Up','Down','Left','Right','A','B','L','R','Start','Select'];
-const BTN_LABEL: Record<string,string> = { Up:'↑上', Down:'↓下', Left:'←左', Right:'→右', A:'A', B:'B', L:'L', R:'R', Start:'Start', Select:'Select' };
 const DEFAULT_KEYS: Record<string,string> = { Up:'ArrowUp',Down:'ArrowDown',Left:'ArrowLeft',Right:'ArrowRight', A:'KeyZ',B:'KeyX',L:'KeyA',R:'KeyS', Start:'Enter',Select:'Backspace' };
 const GBA_GAMEPAD_KEY = 'gba_gp_km';
 const GBA_GAMEPAD_DEADZONE_KEY = 'gba_gp_deadzone';
@@ -349,7 +348,7 @@ const EmulatorPage: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
           {GBA_BTNS.map(btn => (
             <div key={btn} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#f5f5f5', borderRadius: 6, gap: 8 }}>
-              <span style={{ fontWeight: 600 }}>{buttonLabels[btn] ?? BTN_LABEL[btn]}</span>
+              <span style={{ fontWeight: 600 }}>{buttonLabels[btn] ?? btn}</span>
               <Button size="small" type={binding === btn ? 'primary' : 'default'} onClick={() => { setGamepadBindingMode('replace'); setBinding(binding === btn ? null : btn); }} style={{ minWidth: 150, textAlign: 'left', height: 'auto', whiteSpace: 'normal' }}>
                 {binding === btn ? et('keymap.capturing', '按下按键或手柄按钮...') : (
                   <span>

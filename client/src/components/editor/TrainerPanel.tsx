@@ -6,7 +6,7 @@ import {
 import { SaveOutlined, CopyOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { saveFileApi, type TrainerInfoDto } from '../../api/saveFile';
-import { formatLocaleNumber } from '../../i18n/locale';
+import { formatLocaleNumber, getPokemonLanguageOptions } from '../../i18n/locale';
 
 const { Text } = Typography;
 
@@ -22,17 +22,7 @@ const TrainerPanel: React.FC<Props> = ({ saveFileId }) => {
     t(key, { ns: 'messages', defaultValue, ...(options ?? {}) }), [t]);
   const ct = React.useCallback((key: string, defaultValue: string, options?: Record<string, unknown>) =>
     t(key, { ns: 'common', defaultValue, ...(options ?? {}) }), [t]);
-  const LANGUAGE_OPTIONS = [
-    { value: 1, label: '日本語 (JPN)' },
-    { value: 2, label: 'English (ENG)' },
-    { value: 3, label: 'Français (FRE)' },
-    { value: 4, label: 'Italiano (ITA)' },
-    { value: 5, label: 'Deutsch (GER)' },
-    { value: 7, label: 'Español (SPA)' },
-    { value: 8, label: '한국어 (KOR)' },
-    { value: 9, label: '简体中文 (CHS)' },
-    { value: 10, label: '繁體中文 (CHT)' },
-  ];
+  const LANGUAGE_OPTIONS = getPokemonLanguageOptions(t);
   const GENDER_OPTIONS = [
     { value: 0, label: et('otmisc.male', '男 ♂') },
     { value: 1, label: et('otmisc.female', '女 ♀') },

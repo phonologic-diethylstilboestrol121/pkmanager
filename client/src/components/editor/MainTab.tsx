@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import type { ApiError } from '../../api/axios';
 import type { PokemonDto } from '../../api/saveFile';
 import type { EvolveResultDto } from '../../api/evolution';
+import { getPokemonLanguageOptions } from '../../i18n/locale';
 import { useResourceStore } from '../../stores/resourceStore';
 import { resourceApi, type ResourceItem } from '../../api/resource';
 import { useDiagnosticStore } from '../../stores/diagnosticStore';
@@ -23,14 +24,6 @@ interface Props {
   onEvolved?: (result: EvolveResultDto) => void;
 }
 
-const LANGUAGES = [
-  { value: 1, label: '日本語' }, { value: 2, label: 'English' },
-  { value: 3, label: 'Français' }, { value: 4, label: 'Italiano' },
-  { value: 5, label: 'Deutsch' }, { value: 7, label: 'Español' },
-  { value: 8, label: '한국어' }, { value: 9, label: '简体中文' },
-  { value: 10, label: '繁體中文' },
-];
-
 const labelStyle: React.CSSProperties = { fontSize: 11, color: '#8c8c8c', marginBottom: 2 };
 
 const getLevelFromExp = (exp: number, table: number[]) => {
@@ -47,11 +40,17 @@ function setPokemonField<K extends keyof PokemonDto>(pokemon: PokemonDto, key: K
 
 const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, boxIndex, slotIndex, isParty, editSnapshot, onEvolved }) => {
   const { t, i18n } = useTranslation('editor');
+  const ct = (key: string, defaultValue: string, options?: Record<string, unknown>) =>
+    t(key, { ns: 'common', defaultValue, ...(options ?? {}) });
   const { species, abilities, natures, items, balls } = useResourceStore();
   const isGen12 = generation <= 2;
   const isGen8Plus = generation >= 8;
   const ch = () => onChange?.();
   const [showEvolution, setShowEvolution] = useState(false);
+  const languageOptions = getPokemonLanguageOptions(t).map((option) => ({
+    value: option.value,
+    label: option.label.replace(/ \([A-Z]{3}\)$/, ''),
+  }));
 
   const [speciesAbilities, setSpeciesAbilities] = useState<ResourceItem[]>([]);
   const [expTable, setExpTable] = useState<number[]>([]);
@@ -63,7 +62,7 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
         setSpeciesAbilities([]);
         useDiagnosticStore.getState().log({
           category: 'api', level: 'error',
-          message: `加载物种特性失败 (species=${pokemon.species})`,
+          message: t('main.loadSpeciesAbilitiesFailed', { species: pokemon.species, defaultValue: 'Failed to load species abilities (species={{species}})' }),
           stack: (err as ApiError).message,
         });
       });
@@ -74,7 +73,7 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
         setExpTable([]);
         useDiagnosticStore.getState().log({
           category: 'api', level: 'error',
-          message: `加载经验成长表失败 (species=${pokemon.species})`,
+          message: t('main.loadExpTableFailed', { species: pokemon.species, defaultValue: 'Failed to load experience table (species={{species}})' }),
           stack: (err as ApiError).message,
         });
       });
@@ -94,7 +93,7 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
     const fallback = abilityOptions.find(option => option.value === pokemon.ability);
     return fallback?.key ?? pokemon.ability;
   })();
-  const itemOptions = [{ value: 0, label: '无' }, ...items.filter(i => i.id > 0).map(i => ({ value: i.id, label: i.name }))];
+  const itemOptions = [{ value: 0, label: ct('no', 'No') }, ...items.filter(i => i.id > 0).map(i => ({ value: i.id, label: i.name }))];
   const ballOptions = balls.map(b => ({ value: b.id, label: b.name }));
 
   const natureMod = getNatureModifier(pokemon.nature, t);
@@ -105,7 +104,7 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
     <div>
       <Space style={{ width: '100%', justifyContent: 'space-between' }}>
         <div style={{ flex: 1 }}>
-          <div style={labelStyle}>物种</div>
+          <div style={labelStyle}>{t('showdown.field.species', 'Species')}</div>
           <Select showSearch size="small" value={pokemon.species}
             onChange={(v) => { pokemon.species = v; ch(); }}
             filterOption={(input, option) =>
@@ -117,11 +116,11 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
           </Select>
         </div>
         <div>
-          <div style={labelStyle}>形态</div>
+          <div style={labelStyle}>{t('met.form', 'Form')}</div>
           <Space.Compact>
             <InputNumber size="small" min={0} max={63} value={pokemon.form} style={{ width: 70 }}
               onChange={(v) => set('form', v ?? 0)} />
-            <Tag>{pokemon.formName || (pokemon.form > 0 ? `F${pokemon.form}` : '默认')}</Tag>
+            <Tag>{pokemon.formName || (pokemon.form > 0 ? `F${pokemon.form}` : ct('current', 'Default'))}</Tag>
           </Space.Compact>
         </div>
       </Space>
@@ -134,16 +133,16 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
           disabled={!saveFileId || !pokemon.pkmDataBase64}
           onClick={() => setShowEvolution(true)}
         >
-          一键进化（无法回退）
+          {t('main.quickEvolveNoRollback', 'Quick Evolve (cannot undo)')}
         </Button>
         <span style={{ fontSize: 11, color: '#bbb', marginLeft: 8 }}>
-          PKHeX 进化树分析
+          {t('main.pkhexEvolutionAnalysis', 'PKHeX evolution tree analysis')}
         </span>
       </div>
 
       <Space style={{ width: '100%', marginTop: 8 }}>
         <div>
-          <div style={labelStyle}>昵称</div>
+          <div style={labelStyle}>{t('showdown.field.nickname', 'Nickname')}</div>
           <Space.Compact>
             <Switch size="small" checked={pokemon.isNicknamed}
               onChange={(v) => {
@@ -159,14 +158,14 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
           </Space.Compact>
         </div>
         <div>
-          <div style={labelStyle}>语言</div>
-          <Select size="small" value={pokemon.language} options={LANGUAGES} style={{ width: 110 }}
+          <div style={labelStyle}>{t('trainer.language', 'Language')}</div>
+          <Select size="small" value={pokemon.language} options={languageOptions} style={{ width: 120 }}
             onChange={(v) => set('language', v)} disabled={isGen12} />
         </div>
       </Space>
 
       <Space style={{ width: '100%', marginTop: 8 }}>
-        <div><div style={labelStyle}>等级</div>
+        <div><div style={labelStyle}>{t('showdown.field.level', 'Level')}</div>
           <InputNumber size="small" min={1} max={100} value={pokemon.level} style={{ width: 75 }}
             onChange={(v) => {
               const level = v ?? 1;
@@ -184,11 +183,11 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
                 pokemon.level = getLevelFromExp(exp, expTable);
               ch();
             }} /></div>
-        <div><div style={labelStyle}>亲密度</div>
+        <div><div style={labelStyle}>{t('otmisc.otFriendship', 'OT Friendship')}</div>
           <InputNumber size="small" min={0} max={255} value={pokemon.originalTrainerFriendship} style={{ width: 80 }}
             onChange={(v) => set('originalTrainerFriendship', v ?? 0)} /></div>
         {isGen8Plus && (
-          <div><div style={labelStyle}>HT亲密度</div>
+          <div><div style={labelStyle}>{t('otmisc.htFriendship', 'HT Friendship')}</div>
             <InputNumber size="small" min={0} max={255} value={pokemon.handlingTrainerFriendship} style={{ width: 80 }}
               onChange={(v) => set('handlingTrainerFriendship', v ?? 0)} /></div>
         )}
@@ -196,7 +195,7 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
 
       <Space style={{ width: '100%', marginTop: 8 }} wrap>
         <div>
-          <div style={labelStyle}>性格</div>
+          <div style={labelStyle}>{t('showdown.field.nature', 'Nature')}</div>
           <Select size="small" showSearch value={pokemon.nature} style={{ width: 130 }}
             onChange={(v) => { pokemon.nature = v as number; ch(); }}
             filterOption={(input, option) =>
@@ -213,7 +212,7 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
           : <Tag color="default" style={{ fontSize: 11, marginTop: 18 }}>—</Tag>
         }
         <div>
-          <div style={labelStyle}>特性</div>
+          <div style={labelStyle}>{t('showdown.field.ability', 'Ability')}</div>
           <Space.Compact>
             <Select size="small" showSearch value={selectedAbilityKey} style={{ width: 180 }}
               onChange={(key) => {
@@ -229,7 +228,7 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
                 pokemon.abilitySlot = option.slot;
                 ch();
               }} disabled={isGen12}>
-              <Select.Option value={0} key="abi_0">— (默认)</Select.Option>
+              <Select.Option value={0} key="abi_0">{t('main.defaultAbilityOption', { defaultValue: 'Default' })}</Select.Option>
               {abilityOptions.map((a) => (
                 <Select.Option value={a.key} key={`abi_${a.key}`}>{a.label}</Select.Option>
               ))}
@@ -250,33 +249,41 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
                 disabled={isGen12}
                 options={abilityOptions.map(option => ({
                   value: option.slot,
-                  label: option.slot === 2 ? '梦特' : option.slot === 1 ? '特性2' : '特性1',
+                  label: option.slot === 2
+                    ? t('main.hiddenAbility', 'Hidden')
+                    : option.slot === 1
+                      ? t('main.abilitySlot2', 'Ability 2')
+                      : t('main.abilitySlot1', 'Ability 1'),
                 }))}
               />
             )}
             {hiddenAbilityId != null && pokemon.ability === hiddenAbilityId && (
-              <Tag color="purple">梦特</Tag>
+              <Tag color="purple">{t('main.hiddenAbility', 'Hidden')}</Tag>
             )}
           </Space.Compact>
         </div>
       </Space>
 
       <Space style={{ width: '100%', marginTop: 8 }}>
-        <div><div style={labelStyle}>性别</div>
+        <div><div style={labelStyle}>{t('showdown.field.gender', 'Gender')}</div>
           <Select size="small" value={pokemon.gender} style={{ width: 100 }}
             onChange={(v) => set('gender', v)}
-            options={[{ value: 0, label: '♂' }, { value: 1, label: '♀' }, { value: 2, label: '无' }]} /></div>
-        <div><div style={labelStyle}>闪光</div>
+            options={[
+              { value: 0, label: '♂' },
+              { value: 1, label: '♀' },
+              { value: 2, label: t('search.genderless', 'Genderless') },
+            ]} /></div>
+        <div><div style={labelStyle}>{t('showdown.field.shiny', 'Shiny')}</div>
           <Switch size="small" checked={pokemon.isShiny} onChange={(v) => set('isShiny', v)} /></div>
-        <div><div style={labelStyle}>蛋</div>
+        <div><div style={labelStyle}>{t('met.typeEgg', 'Egg')}</div>
           <Switch size="small" checked={pokemon.isEgg} onChange={(v) => set('isEgg', v)} /></div>
-        <div><div style={labelStyle}>命运邂逅</div>
+        <div><div style={labelStyle}>{t('main.fatefulEncounter', 'Fateful Encounter')}</div>
           <Switch size="small" checked={pokemon.fatefulEncounter} onChange={(v) => set('fatefulEncounter', v)} /></div>
       </Space>
 
       <Space style={{ width: '100%', marginTop: 8 }}>
         <div>
-          <div style={labelStyle}>持有道具</div>
+          <div style={labelStyle}>{t('showdown.field.item', 'Held Item')}</div>
           <Select size="small" showSearch value={pokemon.heldItem} options={itemOptions}
             style={{ width: 180 }} disabled={isGen12}
             onChange={(v) => set('heldItem', v)}
@@ -284,30 +291,30 @@ const MainTab: React.FC<Props> = ({ pokemon, generation, onChange, saveFileId, b
               (option?.label as string)?.toLowerCase().includes(input.toLowerCase())} />
         </div>
         <div>
-          <div style={labelStyle}>精灵球</div>
+          <div style={labelStyle}>{t('bankEdit.ball', 'Ball')}</div>
           <Select size="small" value={pokemon.ball} options={ballOptions} style={{ width: 130 }}
             onChange={(v) => set('ball', v)} disabled={isGen12} />
         </div>
       </Space>
 
       <Space style={{ width: '100%', marginTop: 8 }}>
-        <div><div style={labelStyle}>病毒株</div>
+        <div><div style={labelStyle}>{t('main.pokerusStrain', 'Pokerus Strain')}</div>
           <InputNumber size="small" min={0} max={15} value={pokemon.pokerusStrain} style={{ width: 65 }}
             onChange={(v) => set('pokerusStrain', v ?? 0)} /></div>
-        <div><div style={labelStyle}>感染天数</div>
+        <div><div style={labelStyle}>{t('main.pokerusDays', 'Pokerus Days')}</div>
           <InputNumber size="small" min={0} max={15} value={pokemon.pokerusDays} style={{ width: 65 }}
             onChange={(v) => set('pokerusDays', v ?? 0)} /></div>
       </Space>
 
       {isGen8Plus && (
         <Space style={{ width: '100%', marginTop: 8 }}>
-          <div><div style={labelStyle}>身高标量</div>
+          <div><div style={labelStyle}>{t('main.heightScalar', 'Height Scalar')}</div>
             <InputNumber size="small" min={0} max={255} value={pokemon.heightScalar} style={{ width: 75 }}
               onChange={(v) => set('heightScalar', v ?? 0)} /></div>
-          <div><div style={labelStyle}>体重标量</div>
+          <div><div style={labelStyle}>{t('main.weightScalar', 'Weight Scalar')}</div>
             <InputNumber size="small" min={0} max={255} value={pokemon.weightScalar} style={{ width: 75 }}
               onChange={(v) => set('weightScalar', v ?? 0)} /></div>
-          <div><div style={labelStyle}>尺寸</div>
+          <div><div style={labelStyle}>{t('main.size', 'Size')}</div>
             <Space.Compact>
               <InputNumber size="small" min={0} max={3} value={pokemon.scale} style={{ width: 55 }}
                 onChange={(v) => set('scale', v ?? 0)} />

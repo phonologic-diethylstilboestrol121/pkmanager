@@ -70,14 +70,14 @@ const SettingsPage: React.FC = () => {
           <Form.Item
             name={DESMUME_EXE}
             label={t('settings.executablePath', { ns: 'pages', defaultValue: '可执行文件路径' })}
-            extra="Linux: /usr/bin/desmume | Windows: C:\Program Files\DeSmuME\DeSmuME.exe"
+            extra={t('settings.desmumeExeExtra', { ns: 'pages', defaultValue: 'Linux: /usr/bin/desmume | Windows: C:\\Program Files\\DeSmuME\\DeSmuME.exe' })}
           >
             <Input placeholder={navigator.platform.includes('Win') ? 'C:\\Program Files\\DeSmuME\\DeSmuME.exe' : '/usr/bin/desmume'} />
           </Form.Item>
           <Form.Item
             name={DESMUME_SAVE}
             label={t('settings.saveDirectory', { ns: 'pages', defaultValue: '存档目录' })}
-            extra="Linux: ~/.config/desmume/ | Windows: %APPDATA%\DeSmuME"
+            extra={t('settings.desmumeSaveExtra', { ns: 'pages', defaultValue: 'Linux: ~/.config/desmume/ | Windows: %APPDATA%\\DeSmuME' })}
           >
             <Input placeholder={navigator.platform.includes('Win') ? 'C:\\Users\\...\\AppData\\Roaming\\DeSmuME' : '~/.config/desmume'} />
           </Form.Item>
@@ -97,14 +97,14 @@ const SettingsPage: React.FC = () => {
           <Form.Item
             name={AZAHAR_EXE}
             label={t('settings.executablePath', { ns: 'pages', defaultValue: '可执行文件路径' })}
-            extra="Linux: /usr/bin/azahar | Windows: C:\Program Files\Azahar\azahar.exe"
+            extra={t('settings.azaharExeExtra', { ns: 'pages', defaultValue: 'Linux: /usr/bin/azahar | Windows: C:\\Program Files\\Azahar\\azahar.exe' })}
           >
             <Input placeholder={navigator.platform.includes('Win') ? 'C:\\Program Files\\Azahar\\azahar.exe' : '/usr/bin/azahar'} />
           </Form.Item>
           <Form.Item
             name={AZAHAR_DATA}
             label={t('settings.userDataDirectory', { ns: 'pages', defaultValue: '用户数据目录' })}
-            extra="包含 sdmc/ 的目录（Linux: ~/.local/share/azahar-emu/ | Windows: %APPDATA%\azahar-emu）"
+            extra={t('settings.azaharDataExtra', { ns: 'pages', defaultValue: '包含 sdmc/ 的目录（Linux: ~/.local/share/azahar-emu/ | Windows: %APPDATA%\\azahar-emu）' })}
           >
             <Input placeholder={navigator.platform.includes('Win') ? 'C:\\Users\\...\\AppData\\Roaming\\azahar-emu' : '~/.local/share/azahar-emu'} />
           </Form.Item>

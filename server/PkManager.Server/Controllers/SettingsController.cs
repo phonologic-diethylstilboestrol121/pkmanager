@@ -9,7 +9,7 @@ namespace PkManager.Server.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class SettingsController : ControllerBase
+public class SettingsController : LocalizedControllerBase
 {
     private readonly SettingsService _settingsService;
     private readonly UserContext _userContext;
@@ -42,7 +42,7 @@ public class SettingsController : ControllerBase
         await _settingsService.SaveEmulatorSettings(userId, deviceId, settings);
 
         var updated = await _settingsService.GetEmulatorSettings(userId, deviceId);
-        return Ok(ApiResponse<Dictionary<string, string>>.Ok(updated, "设置已保存"));
+        return Ok(OkMessage(updated, "settings.saved"));
     }
 
     // ── helpers ──────────────────────────────────────────

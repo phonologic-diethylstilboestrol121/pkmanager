@@ -8,7 +8,7 @@ namespace PkManager.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class BankController : ControllerBase
+public class BankController : LocalizedControllerBase
 {
     private readonly BankService _bankService;
     private readonly UserContext _userContext;
@@ -37,7 +37,7 @@ public class BankController : ControllerBase
         [FromQuery] int pageSize = 20)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<BankListResult>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<BankListResult>();
 
         var filter = new BankFilter
         {
@@ -63,22 +63,22 @@ public class BankController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> MoveFromSave([FromBody] MoveFromSaveRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
 
         try
         {
             var (bankId, pokemon) = await _bankService.MoveFromSave(
                 userId.Value, request.SaveFileId, request.BoxIndex, request.SlotIndex);
 
-            return Ok(ApiResponse<object>.Ok(new
+            return Ok(OkMessage(new
             {
                 BankPokemonId = bankId,
                 Pokemon = pokemon
-            }, "已存入银行"));
+            }, "bank.moveFromSaveSuccess"));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<object>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<object>(ex));
         }
     }
 
@@ -89,11 +89,11 @@ public class BankController : ControllerBase
     public async Task<ActionResult<ApiResponse<PokemonDto>>> Detail(Guid id)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<PokemonDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<PokemonDto>();
 
         var pokemon = await _bankService.GetBankDetail(id, userId.Value);
         if (pokemon == null)
-            return NotFound(ApiResponse<PokemonDto>.Error(404, "宝可梦不存在"));
+            return NotFound(ErrorMessage<PokemonDto>(404, "common.pokemonNotFound"));
 
         return Ok(ApiResponse<PokemonDto>.Ok(pokemon));
     }
@@ -105,16 +105,16 @@ public class BankController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
 
         try
         {
             await _bankService.Delete(id, userId.Value);
-            return Ok(ApiResponse<object>.Ok(new { }, "已删除"));
+            return Ok(OkMessage(new { }, "bank.deleteSuccess"));
         }
         catch (BusinessException ex)
         {
-            return NotFound(ApiResponse<object>.Error(ex.ErrorCode, ex.Message));
+            return NotFound(FromBusinessException<object>(ex));
         }
     }
 
@@ -125,10 +125,10 @@ public class BankController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> BatchDelete([FromBody] BatchDeleteRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
 
         var count = await _bankService.BatchDelete(request.Ids, userId.Value);
-        return Ok(ApiResponse<object>.Ok(new { DeletedCount = count }, $"已删除 {count} 只宝可梦"));
+        return Ok(OkMessage(new { DeletedCount = count }, "bank.batchDeleteSuccess", count));
     }
 
     /// <summary>
@@ -147,7 +147,7 @@ public class BankController : ControllerBase
         }
         catch (BusinessException ex)
         {
-            return NotFound(ApiResponse<object>.Error(ex.ErrorCode, ex.Message));
+            return NotFound(FromBusinessException<object>(ex));
         }
     }
 
@@ -158,25 +158,26 @@ public class BankController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> BatchMoveToSave([FromBody] BatchMoveToSaveRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
 
         try
         {
             var result = await _bankService.BatchMoveToSave(
                 request.Ids, request.SaveFileId, request.TargetBoxIndex, userId.Value);
-            var msg = result.FailedCount > 0
-                ? $"已移动 {result.MovedCount} 只，{result.FailedCount} 只失败"
-                : $"已移动 {result.MovedCount} 只宝可梦到存档";
             return Ok(ApiResponse<object>.Ok(new
             {
                 MovedCount = result.MovedCount,
                 FailedCount = result.FailedCount,
                 FailedIds = result.FailedIds
-            }, msg));
+            },
+            result.FailedCount > 0
+                ? Text("bank.batchMovePartialSuccess", result.MovedCount, result.FailedCount)
+                : Text("bank.batchMoveSuccess", result.MovedCount),
+            result.FailedCount > 0 ? "bank.batchMovePartialSuccess" : "bank.batchMoveSuccess"));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<object>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<object>(ex));
         }
     }
 
@@ -187,17 +188,19 @@ public class BankController : ControllerBase
     public async Task<ActionResult<ApiResponse<EditResultDto>>> Edit(Guid id, [FromBody] PokemonEditRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<EditResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<EditResultDto>();
 
         try
         {
             var result = await _bankService.SaveBankPokemon(id, userId.Value, request);
-            var msg = result.Status == LegalityStatus.Legal ? "修改已保存" : "已保存（⚠️ 不合法）";
-            return Ok(ApiResponse<EditResultDto>.Ok(result, msg));
+            var key = result.Status == LegalityStatus.Legal
+                ? "pokemon.editSaved"
+                : "pokemon.editSavedInvalid";
+            return Ok(OkMessage(result, key));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<EditResultDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<EditResultDto>(ex));
         }
     }
 
@@ -208,16 +211,16 @@ public class BankController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> MoveToSave(Guid id, [FromBody] MoveToSaveRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<object>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<object>();
 
         try
         {
             await _bankService.MoveSingleToSave(id, userId.Value, request.SaveFileId, request.TargetBoxIndex, request.TargetSlotIndex);
-            return Ok(ApiResponse<object>.Ok(new { }, "已发送到存档"));
+            return Ok(OkMessage(new { }, "bank.moveToSaveSuccess"));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<object>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<object>(ex));
         }
     }
 
@@ -228,11 +231,10 @@ public class BankController : ControllerBase
     public async Task<ActionResult<ApiResponse<BackfillResult>>> Backfill()
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<BackfillResult>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<BackfillResult>();
 
         var result = await _bankService.Backfill(userId.Value);
-        return Ok(ApiResponse<BackfillResult>.Ok(result,
-            $"回填完成：修复 {result.Fixed} 条，跳过 {result.Skipped} 条（缺少原始数据），失败 {result.Failed} 条"));
+        return Ok(OkMessage(result, "bank.backfillCompleted", result.Fixed, result.Skipped, result.Failed));
     }
 
     /// <summary>
@@ -243,7 +245,7 @@ public class BankController : ControllerBase
         [FromQuery] int page = 1, [FromQuery] int pageSize = 100)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<BankBatchLegalityReportDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<BankBatchLegalityReportDto>();
 
         try
         {
@@ -259,7 +261,7 @@ public class BankController : ControllerBase
                     IllegalCount = cached.IllegalCount,
                     Slots = cached.Slots.Skip((page - 1) * pageSize).Take(pageSize).ToList()
                 };
-                return Ok(ApiResponse<BankBatchLegalityReportDto>.Ok(paged, "来自缓存"));
+                return Ok(OkMessage(paged, "bank.cachedResult"));
             }
 
             var report = await _bankService.BatchLegalityScan(userId.Value);
@@ -275,12 +277,11 @@ public class BankController : ControllerBase
                 Slots = report.Slots.Skip((page - 1) * pageSize).Take(pageSize).ToList()
             };
 
-            return Ok(ApiResponse<BankBatchLegalityReportDto>.Ok(result,
-                $"银行扫描完成: {report.Total} 只宝可梦"));
+            return Ok(OkMessage(result, "bank.legalityScanCompleted", report.Total));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<BankBatchLegalityReportDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<BankBatchLegalityReportDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 
@@ -292,7 +293,7 @@ public class BankController : ControllerBase
         [FromBody] PokemonSearchRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<PokemonSearchResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<PokemonSearchResultDto>();
 
         try
         {
@@ -302,8 +303,8 @@ public class BankController : ControllerBase
         catch (BusinessException ex)
         {
             return ex.ErrorCode == 404
-                ? NotFound(ApiResponse<PokemonSearchResultDto>.Error(ex.ErrorCode, ex.Message))
-                : BadRequest(ApiResponse<PokemonSearchResultDto>.Error(ex.ErrorCode, ex.Message));
+                ? NotFound(FromBusinessException<PokemonSearchResultDto>(ex))
+                : BadRequest(FromBusinessException<PokemonSearchResultDto>(ex));
         }
     }
 }

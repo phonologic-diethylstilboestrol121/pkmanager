@@ -162,5 +162,20 @@
   "saveEditor.boxSortLevel": "レベル",
   "saveEditor.boxSortShiny": "色違い優先",
   "saveEditor.boxSortName": "名前",
-  "saveEditor.scanFailed": "スキャンに失敗しました"
+  "saveEditor.scanFailed": "スキャンに失敗しました",
+  "settings.desmumeExeExtra": "Linux: /usr/bin/desmume | Windows: C:\\Program Files\\DeSmuME\\DeSmuME.exe",
+  "settings.desmumeSaveExtra": "Linux: ~/.config/desmume/ | Windows: %APPDATA%\\DeSmuME",
+  "settings.azaharExeExtra": "Linux: /usr/bin/azahar | Windows: C:\\Program Files\\Azahar\\azahar.exe",
+  "settings.azaharDataExtra": "包含 sdmc/ 的目录（Linux: ~/.local/share/azahar-emu/ | Windows: %APPDATA%\\azahar-emu）",
+  "bank.gen3": "Gen3 (GBA)",
+  "bank.gen4": "Gen4 (NDS)",
+  "bank.gen5": "Gen5 (NDS)",
+  "bank.gen6": "Gen6 (3DS)",
+  "bank.gen7": "Gen7 (3DS)",
+  "bank.sortCreatedDesc": "添加时间 ↓",
+  "bank.sortLevelDesc": "等级 ↓",
+  "bank.sortLevelAsc": "等级 ↑",
+  "bank.sortSpeciesDesc": "物种编号 ↓",
+  "bank.sortSpeciesAsc": "物种编号 ↑",
+  "bank.savePokemonCount": "{{count}}只"
 }

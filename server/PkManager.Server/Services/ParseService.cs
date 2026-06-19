@@ -44,7 +44,7 @@ public class ParseService
         var parseBuffer = GetCoreSaveBytes(saveData);
         var sav = SaveUtil.GetSaveFile(parseBuffer);
         if (sav == null)
-            throw new BusinessException("不支持的存档格式或文件已损坏");
+            throw BusinessException.FromKey("parse.invalidSaveFormat", 400);
         return sav;
     }
 
@@ -86,9 +86,7 @@ public class ParseService
         }
         catch (BusinessException)
         {
-            throw new BusinessException(
-                $"不支持的存档格式或文件已损坏 {sizeHint}。" +
-                " 请确认：1) 存档来自宝可梦主系列游戏 2) 文件未损坏 3) 文件大小正确");
+            throw BusinessException.FromKey("parse.invalidSaveFormatDetailed", 400, sizeHint);
         }
 
         var boxes = new List<BoxDto>();
@@ -176,7 +174,7 @@ public class ParseService
     {
         var pkm = EntityFormat.GetFromBytes(pkmData);
         if (pkm == null)
-            throw new BusinessException("不支持的宝可梦文件格式");
+            throw BusinessException.FromKey("parse.invalidPokemonFile", 400);
 
         return MapToPokemonDto(pkm);
     }
@@ -190,7 +188,7 @@ public class ParseService
         var format = EntityFormat.GetFormat(data);
         var pkm = EntityFormat.GetFromBytes(data);
         if (pkm == null)
-            throw new BusinessException("无法重建宝可梦对象");
+            throw BusinessException.FromKey("parse.rebuildFailed", 400);
 
         return pkm;
     }

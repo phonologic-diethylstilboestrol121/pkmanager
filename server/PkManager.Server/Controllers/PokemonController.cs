@@ -13,7 +13,7 @@ namespace PkManager.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class PokemonController : ControllerBase
+public class PokemonController : LocalizedControllerBase
 {
     private readonly NpgsqlConnection _db;
     private readonly ParseService _parseService;
@@ -51,7 +51,7 @@ public class PokemonController : ControllerBase
     public async Task<ActionResult<ApiResponse<PokemonDto>>> GetBankPokemon(Guid id)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<PokemonDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<PokemonDto>();
 
         var bank = await _db.QueryFirstOrDefaultAsync<BankPokemon>(
             "SELECT * FROM bank_pokemon WHERE id = @Id AND user_id = @UserId",
@@ -63,7 +63,7 @@ public class PokemonController : ControllerBase
             pokemon.Id = bank.Id;
             return Ok(ApiResponse<PokemonDto>.Ok(pokemon));
         }
-        return NotFound(ApiResponse<PokemonDto>.Error(404, "宝可梦不存在"));
+        return NotFound(ErrorMessage<PokemonDto>(404, "common.pokemonNotFound"));
     }
 
     /// <summary>
@@ -73,12 +73,12 @@ public class PokemonController : ControllerBase
     public async Task<ActionResult<ApiResponse<EditResultDto>>> EditSaveSlot([FromBody] SaveSlotEditRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<EditResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<EditResultDto>();
 
         if (string.IsNullOrEmpty(request.PkmDataBase64))
-            return BadRequest(ApiResponse<EditResultDto>.Error(400, "缺少宝可梦数据"));
+            return BadRequest(ErrorMessage<EditResultDto>(400, "pokemon.missingPokemonData"));
         if (request.SaveFileId == Guid.Empty)
-            return BadRequest(ApiResponse<EditResultDto>.Error(400, "缺少存档ID"));
+            return BadRequest(ErrorMessage<EditResultDto>(400, "pokemon.missingSaveFileId"));
 
         try
         {
@@ -101,12 +101,11 @@ public class PokemonController : ControllerBase
             if (persisted != null)
                 result.UpdatedPokemon = _parseService.MapToPokemonDto(persisted);
 
-            return Ok(ApiResponse<EditResultDto>.Ok(result,
-                result.IsValid ? "修改已保存" : "已保存（⚠️ 不合法）"));
+            return Ok(OkMessage(result, result.IsValid ? "pokemon.editSaved" : "pokemon.editSavedInvalid"));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<EditResultDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<EditResultDto>(ex));
         }
     }
 
@@ -117,10 +116,10 @@ public class PokemonController : ControllerBase
     public async Task<ActionResult<ApiResponse<LegalityReportDto>>> ValidateParty([FromBody] PartyPokemonEditRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<LegalityReportDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<LegalityReportDto>();
 
         if (string.IsNullOrEmpty(request.PkmDataBase64))
-            return BadRequest(ApiResponse<LegalityReportDto>.Error(400, "缺少宝可梦数据"));
+            return BadRequest(ErrorMessage<LegalityReportDto>(400, "pokemon.missingPokemonData"));
 
         try
         {
@@ -131,7 +130,7 @@ public class PokemonController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<LegalityReportDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<LegalityReportDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 
@@ -142,10 +141,10 @@ public class PokemonController : ControllerBase
     public async Task<ActionResult<ApiResponse<EditResultDto>>> EditParty([FromBody] PartyPokemonEditRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<EditResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<EditResultDto>();
 
         if (string.IsNullOrEmpty(request.PkmDataBase64))
-            return BadRequest(ApiResponse<EditResultDto>.Error(400, "缺少宝可梦数据"));
+            return BadRequest(ErrorMessage<EditResultDto>(400, "pokemon.missingPokemonData"));
 
         try
         {
@@ -158,12 +157,11 @@ public class PokemonController : ControllerBase
                 await PersistPartyEdit(request.SaveFileId, userId.Value, request.SlotIndex, pkm);
             }
 
-            return Ok(ApiResponse<EditResultDto>.Ok(result,
-                result.IsValid ? "修改已保存到随行宝可梦" : "已保存（⚠️ 不合法）"));
+            return Ok(OkMessage(result, result.IsValid ? "pokemon.editPartySaved" : "pokemon.editSavedInvalid"));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<EditResultDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<EditResultDto>(ex));
         }
     }
 
@@ -205,7 +203,7 @@ public class PokemonController : ControllerBase
         }
         catch (BusinessException)
         {
-            throw new BusinessException("保存后的存档无法重新解析，已中止写入");
+            throw BusinessException.FromKey("save.saveReparseFailed", 400);
         }
 
         await _saveFileService.WriteSaveBytes(saveFile, userId, updatedData);
@@ -222,20 +220,20 @@ public class PokemonController : ControllerBase
     public ActionResult<ApiResponse<string>> GenerateQR([FromBody] QrGenerateRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<string>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<string>();
 
         if (string.IsNullOrEmpty(request.PkmDataBase64))
-            return BadRequest(ApiResponse<string>.Error(400, "缺少宝可梦数据"));
+            return BadRequest(ErrorMessage<string>(400, "pokemon.missingPokemonData"));
 
         try
         {
             var pkm = _parseService.RebuildPkm(request.PkmDataBase64);
             var qrMessage = QRMessageUtil.GetMessage(pkm);
-            return Ok(ApiResponse<string>.Ok(qrMessage, "QR码已生成"));
+            return Ok(OkMessage(qrMessage, "pokemon.qrGenerated"));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<string>.Error(400, $"QR生成失败: {ex.Message}"));
+            return BadRequest(ErrorMessageFallback<string>(400, "pokemon.qrGenerateFailed", ex.Message));
         }
     }
 
@@ -246,20 +244,20 @@ public class PokemonController : ControllerBase
     public ActionResult<ApiResponse<string>> ExportShowdown([FromBody] ShowdownExportRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<string>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<string>();
 
         if (string.IsNullOrEmpty(request.PkmDataBase64))
-            return BadRequest(ApiResponse<string>.Error(400, "缺少宝可梦数据"));
+            return BadRequest(ErrorMessage<string>(400, "pokemon.missingPokemonData"));
 
         try
         {
             var pkm = _parseService.RebuildPkm(request.PkmDataBase64);
             var showdownText = _legalizationService.ExportShowdown(pkm, request.EditSnapshot);
-            return Ok(ApiResponse<string>.Ok(showdownText, "Showdown 导出成功"));
+            return Ok(OkMessage(showdownText, "pokemon.showdownExportSuccess"));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<string>.Error(400, $"导出失败: {ex.Message}"));
+            return BadRequest(ErrorMessageFallback<string>(400, "pokemon.exportFailed", ex.Message));
         }
     }
 
@@ -270,11 +268,11 @@ public class PokemonController : ControllerBase
     public async Task<ActionResult<ApiResponse<LegalityReportDto>>> Validate(Guid id, [FromBody] PokemonEditRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<LegalityReportDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<LegalityReportDto>();
 
         var pkm = await FindPkm(id, userId.Value);
         if (pkm == null)
-            return NotFound(ApiResponse<LegalityReportDto>.Error(404, "宝可梦不存在"));
+            return NotFound(ErrorMessage<LegalityReportDto>(404, "common.pokemonNotFound"));
 
         // 仅应用临时修改用于校验
         ApplyEditsTemp(pkm, request);
@@ -291,21 +289,21 @@ public class PokemonController : ControllerBase
     public async Task<ActionResult<ApiResponse<PokemonDto>>> ParseSingle(IFormFile file)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<PokemonDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<PokemonDto>();
 
         if (file == null || file.Length == 0)
-            return BadRequest(ApiResponse<PokemonDto>.Error(400, "请选择文件"));
+            return BadRequest(ErrorMessage<PokemonDto>(400, "pokemon.fileRequired"));
 
         try
         {
             using var ms = new MemoryStream();
             await file.CopyToAsync(ms);
             var pokemon = _parseService.ParseSinglePokemon(ms.ToArray());
-            return Ok(ApiResponse<PokemonDto>.Ok(pokemon, "解析成功"));
+            return Ok(OkMessage(pokemon, "pokemon.parseSuccess"));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<PokemonDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<PokemonDto>(ex));
         }
     }
 
@@ -335,10 +333,10 @@ public class PokemonController : ControllerBase
         [FromBody] LegalizationRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<LegalizationResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<LegalizationResultDto>();
 
         if (request.Species < 1 || request.Species > 1025)
-            return BadRequest(ApiResponse<LegalizationResultDto>.Error(400, "物种ID无效"));
+            return BadRequest(ErrorMessage<LegalizationResultDto>(400, "pokemon.invalidSpecies"));
 
         try
         {
@@ -348,30 +346,31 @@ public class PokemonController : ControllerBase
             var (pkm, error, changes) = _legalizationService.GenerateFromTemplate(request, trainerInfo);
 
             if (pkm == null)
-                return Ok(ApiResponse<LegalizationResultDto>.Ok(
+                return Ok(OkMessageFallback(
                     new LegalizationResultDto { Success = false, Error = error },
-                    error ?? "生成失败"));
+                    "pokemon.legalizeGenerateFailed",
+                    error ?? Text("pokemon.legalizeGenerateFailed")));
 
             var dto = _parseService.MapToPokemonDto(pkm);
             var base64 = new byte[pkm.SIZE_PARTY];
             pkm.WriteDecryptedDataParty(base64);
 
-            return Ok(ApiResponse<LegalizationResultDto>.Ok(
+            return Ok(OkMessage(
                 new LegalizationResultDto
                 {
                     Success = true,
                     Pokemon = dto,
                     PkmDataBase64 = Convert.ToBase64String(base64),
                     Changes = changes
-                }, "合法宝可梦已生成"));
+                }, "pokemon.legalizeGenerated"));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<LegalizationResultDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<LegalizationResultDto>(ex));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<LegalizationResultDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<LegalizationResultDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 
@@ -383,10 +382,10 @@ public class PokemonController : ControllerBase
         [FromBody] ShowdownImportRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<LegalizationResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<LegalizationResultDto>();
 
         if (string.IsNullOrWhiteSpace(request.ShowdownText))
-            return BadRequest(ApiResponse<LegalizationResultDto>.Error(400, "Showdown文本为空"));
+            return BadRequest(ErrorMessage<LegalizationResultDto>(400, "pokemon.showdownTextRequired"));
 
         try
         {
@@ -396,15 +395,16 @@ public class PokemonController : ControllerBase
             var (pkm, error, encounterType) = _legalizationService.GenerateFromShowdown(request, trainerInfo);
 
             if (pkm == null)
-                return Ok(ApiResponse<LegalizationResultDto>.Ok(
+                return Ok(OkMessageFallback(
                     new LegalizationResultDto { Success = false, Error = error },
-                    error ?? "Showdown导入失败"));
+                    "pokemon.showdownImportFailed",
+                    error ?? Text("pokemon.showdownImportFailed")));
 
             var dto = _parseService.MapToPokemonDto(pkm);
             var base64 = new byte[pkm.SIZE_PARTY];
             pkm.WriteDecryptedDataParty(base64);
 
-            return Ok(ApiResponse<LegalizationResultDto>.Ok(
+            return Ok(OkMessage(
                 new LegalizationResultDto
                 {
                     Success = true,
@@ -412,15 +412,15 @@ public class PokemonController : ControllerBase
                     PkmDataBase64 = Convert.ToBase64String(base64),
                     EncounterType = encounterType,
                     Changes = { "Generated from Showdown" }
-                }, "Showdown导入成功"));
+                }, "pokemon.showdownImportSuccess"));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<LegalizationResultDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<LegalizationResultDto>(ex));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<LegalizationResultDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<LegalizationResultDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 
@@ -432,21 +432,21 @@ public class PokemonController : ControllerBase
         [FromBody] ShowdownParseRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<ShowdownParseResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<ShowdownParseResultDto>();
 
         if (string.IsNullOrWhiteSpace(request.ShowdownText))
-            return BadRequest(ApiResponse<ShowdownParseResultDto>.Error(400, "Showdown文本为空"));
+            return BadRequest(ErrorMessage<ShowdownParseResultDto>(400, "pokemon.showdownTextRequired"));
 
         try
         {
             var sets = _legalizationService.ParseShowdownText(request.ShowdownText);
-            return Ok(ApiResponse<ShowdownParseResultDto>.Ok(
+            return Ok(OkMessage(
                 new ShowdownParseResultDto { Success = true, Sets = sets },
-                $"解析到 {sets.Count} 套配置"));
+                "pokemon.showdownParseSuccess", sets.Count));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<ShowdownParseResultDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<ShowdownParseResultDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 
@@ -458,10 +458,10 @@ public class PokemonController : ControllerBase
         [FromBody] AutoFixRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<AutoFixResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<AutoFixResultDto>();
 
         if (string.IsNullOrEmpty(request.PkmDataBase64))
-            return BadRequest(ApiResponse<AutoFixResultDto>.Error(400, "缺少宝可梦数据"));
+            return BadRequest(ErrorMessage<AutoFixResultDto>(400, "pokemon.missingPokemonData"));
 
         try
         {
@@ -476,16 +476,17 @@ public class PokemonController : ControllerBase
             var result = _legalizationService.AutoFix(pkm, request.EditSnapshot,
                 request.FixActions, trainerInfo);
 
-            return Ok(ApiResponse<AutoFixResultDto>.Ok(result,
-                result.Fixed ? $"修复完成: {string.Join(", ", result.AppliedFixes)}" : "无需修复"));
+            return Ok(OkMessage(result,
+                result.Fixed ? "pokemon.autoFixCompleted" : "pokemon.autoFixNotNeeded",
+                string.Join(", ", result.AppliedFixes)));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<AutoFixResultDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<AutoFixResultDto>(ex));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<AutoFixResultDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<AutoFixResultDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 
@@ -499,10 +500,10 @@ public class PokemonController : ControllerBase
         [FromBody] EncounterSearchRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<EncounterSearchResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<EncounterSearchResultDto>();
 
         if (request.Species < 1 || request.Species > 1025)
-            return BadRequest(ApiResponse<EncounterSearchResultDto>.Error(400, "物种ID无效"));
+            return BadRequest(ErrorMessage<EncounterSearchResultDto>(400, "pokemon.invalidSpecies"));
 
         try
         {
@@ -511,7 +512,7 @@ public class PokemonController : ControllerBase
                 "SELECT * FROM save_files WHERE id = @Id AND user_id = @UserId",
                 new { Id = request.SaveFileId, UserId = userId.Value });
             if (saveFile == null)
-                return NotFound(ApiResponse<EncounterSearchResultDto>.Error(404, "存档不存在"));
+                return NotFound(ErrorMessage<EncounterSearchResultDto>(404, "save.notFound"));
 
             var rawData = _saveFileService.ReadSaveBytes(saveFile, userId.Value);
             var sav = ParseService.OpenSaveFile(rawData, saveFile.Filename);
@@ -524,16 +525,15 @@ public class PokemonController : ControllerBase
             var trainerInfo = new SimpleTrainerInfo(sav, targetVersion);
 
             var result = _legalizationService.SearchEncounters(request, trainerInfo);
-            return Ok(ApiResponse<EncounterSearchResultDto>.Ok(result,
-                $"找到 {result.TotalCount} 条合法遭遇"));
+            return Ok(OkMessage(result, "pokemon.encounterSearchCompleted", result.TotalCount));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<EncounterSearchResultDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<EncounterSearchResultDto>(ex));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<EncounterSearchResultDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<EncounterSearchResultDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 
@@ -545,14 +545,14 @@ public class PokemonController : ControllerBase
         [FromBody] EncounterApplyRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<EncounterApplyResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<EncounterApplyResultDto>();
 
         if (string.IsNullOrEmpty(request.PkmDataBase64))
-            return BadRequest(ApiResponse<EncounterApplyResultDto>.Error(400, "缺少宝可梦数据"));
+            return BadRequest(ErrorMessage<EncounterApplyResultDto>(400, "pokemon.missingPokemonData"));
         if (string.IsNullOrEmpty(request.RecomputeToken))
-            return BadRequest(ApiResponse<EncounterApplyResultDto>.Error(400, "缺少遭遇Token"));
+            return BadRequest(ErrorMessage<EncounterApplyResultDto>(400, "pokemon.encounterTokenRequired"));
         if (request.EditSnapshot == null)
-            return BadRequest(ApiResponse<EncounterApplyResultDto>.Error(400, "缺少编辑快照"));
+            return BadRequest(ErrorMessage<EncounterApplyResultDto>(400, "pokemon.editSnapshotRequired"));
 
         try
         {
@@ -561,7 +561,7 @@ public class PokemonController : ControllerBase
                 "SELECT * FROM save_files WHERE id = @Id AND user_id = @UserId",
                 new { Id = request.SaveFileId, UserId = userId.Value });
             if (saveFile == null)
-                return NotFound(ApiResponse<EncounterApplyResultDto>.Error(404, "存档不存在"));
+                return NotFound(ErrorMessage<EncounterApplyResultDto>(404, "save.notFound"));
 
             var rawData = _saveFileService.ReadSaveBytes(saveFile, userId.Value);
             var sav = ParseService.OpenSaveFile(rawData, saveFile.Filename);
@@ -575,18 +575,17 @@ public class PokemonController : ControllerBase
             var result = _legalizationService.ApplyEncounter(request, trainerInfo, sav);
 
             if (!result.Success)
-                return Ok(ApiResponse<EncounterApplyResultDto>.Ok(result, result.Error ?? "应用失败"));
+                return Ok(OkMessageFallback(result, "pokemon.encounterApplyFailed", result.Error ?? Text("pokemon.encounterApplyFailed")));
 
-            return Ok(ApiResponse<EncounterApplyResultDto>.Ok(result,
-                $"已应用遭遇约束: {string.Join(", ", result.AppliedFields)}"));
+            return Ok(OkMessage(result, "pokemon.encounterApplied", string.Join(", ", result.AppliedFields)));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<EncounterApplyResultDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<EncounterApplyResultDto>(ex));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<EncounterApplyResultDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<EncounterApplyResultDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 
@@ -598,10 +597,10 @@ public class PokemonController : ControllerBase
         [FromBody] EncounterGenerateRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<EncounterGenerateResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<EncounterGenerateResultDto>();
 
         if (string.IsNullOrEmpty(request.RecomputeToken))
-            return BadRequest(ApiResponse<EncounterGenerateResultDto>.Error(400, "缺少遭遇Token"));
+            return BadRequest(ErrorMessage<EncounterGenerateResultDto>(400, "pokemon.encounterTokenRequired"));
 
         try
         {
@@ -610,7 +609,7 @@ public class PokemonController : ControllerBase
                 "SELECT * FROM save_files WHERE id = @Id AND user_id = @UserId",
                 new { Id = request.SaveFileId, UserId = userId.Value });
             if (saveFile == null)
-                return NotFound(ApiResponse<EncounterGenerateResultDto>.Error(404, "存档不存在"));
+                return NotFound(ErrorMessage<EncounterGenerateResultDto>(404, "save.notFound"));
 
             var rawData = _saveFileService.ReadSaveBytes(saveFile, userId.Value);
             var sav = ParseService.OpenSaveFile(rawData, saveFile.Filename);
@@ -624,16 +623,17 @@ public class PokemonController : ControllerBase
             // 生成 PKM
             var (pkm, error) = _legalizationService.GenerateFromEncounter(request, trainerInfo);
             if (pkm == null)
-                return Ok(ApiResponse<EncounterGenerateResultDto>.Ok(
+                return Ok(OkMessageFallback(
                     new EncounterGenerateResultDto { Success = false, Error = error },
-                    error ?? "生成失败"));
+                    "pokemon.encounterGenerateFailed",
+                    error ?? Text("pokemon.encounterGenerateFailed")));
 
             // 兼容转换
             var compat = sav.GetCompatiblePKM(pkm);
             if (compat == null)
-                return Ok(ApiResponse<EncounterGenerateResultDto>.Ok(
+                return Ok(OkMessage(
                     new EncounterGenerateResultDto { Success = false, Error = "宝可梦格式与目标存档不兼容" },
-                    "生成失败"));
+                    "pokemon.encounterGenerateFailed"));
 
             // 在兼容实体上跑合法性分析
             var la = new LegalityAnalysis(compat);
@@ -645,13 +645,14 @@ public class PokemonController : ControllerBase
                     new EncounterGenerateResultDto
                     {
                         Success = false,
-                        Error = "生成结果未通过合法性校验",
+                        Error = Text("pokemon.encounterIllegalResult"),
                         Pokemon = _parseService.MapToPokemonDto(compat),
                         PkmDataBase64 = ParseService.GetPkmBase64(compat),
                         IsLegal = false,
                         LegalityReport = report
                     },
-                    "生成失败（合法性校验未通过）"));
+                    Text("pokemon.encounterIllegalGenerateFailed"),
+                    "pokemon.encounterIllegalGenerateFailed"));
             }
 
             // 写入槽位（空槽检查 + 兼容转换）
@@ -662,8 +663,9 @@ public class PokemonController : ControllerBase
             }
             catch (BusinessException ex)
             {
-                return Ok(ApiResponse<EncounterGenerateResultDto>.Ok(
+                return Ok(OkMessageFallback(
                     new EncounterGenerateResultDto { Success = false, Error = ex.Message },
+                    ex.MessageKey ?? "common.unexpectedError",
                     ex.Message));
             }
 
@@ -677,7 +679,7 @@ public class PokemonController : ControllerBase
             var base64 = new byte[(persisted ?? compat).SIZE_PARTY];
             (persisted ?? compat).WriteDecryptedDataParty(base64);
 
-            return Ok(ApiResponse<EncounterGenerateResultDto>.Ok(
+            return Ok(OkMessage(
                 new EncounterGenerateResultDto
                 {
                     Success = true,
@@ -685,15 +687,15 @@ public class PokemonController : ControllerBase
                     PkmDataBase64 = Convert.ToBase64String(base64),
                     IsLegal = isLegal,
                     LegalityReport = report
-                }, isLegal ? "宝可梦已生成并写入存档" : "已生成（⚠️ 不合法）"));
+                }, isLegal ? "pokemon.encounterGenerated" : "pokemon.editSavedInvalid"));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<EncounterGenerateResultDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<EncounterGenerateResultDto>(ex));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<EncounterGenerateResultDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<EncounterGenerateResultDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 
@@ -708,10 +710,10 @@ public class PokemonController : ControllerBase
         [FromBody] GetEvolutionsRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<EvolutionPathDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<EvolutionPathDto>();
 
         if (string.IsNullOrEmpty(request.PkmDataBase64))
-            return BadRequest(ApiResponse<EvolutionPathDto>.Error(400, "缺少宝可梦数据"));
+            return BadRequest(ErrorMessage<EvolutionPathDto>(400, "pokemon.missingPokemonData"));
 
         try
         {
@@ -721,11 +723,11 @@ public class PokemonController : ControllerBase
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<EvolutionPathDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<EvolutionPathDto>(ex));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<EvolutionPathDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<EvolutionPathDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 
@@ -738,14 +740,14 @@ public class PokemonController : ControllerBase
         [FromBody] EvolveRequest request)
     {
         var userId = _userContext.UserId;
-        if (userId == null) return Unauthorized(ApiResponse<EvolveResultDto>.Error(401, "未登录"));
+        if (userId == null) return UnauthorizedMessage<EvolveResultDto>();
 
         if (string.IsNullOrEmpty(request.PkmDataBase64))
-            return BadRequest(ApiResponse<EvolveResultDto>.Error(400, "缺少宝可梦数据"));
+            return BadRequest(ErrorMessage<EvolveResultDto>(400, "pokemon.missingPokemonData"));
         if (request.SaveFileId == Guid.Empty)
-            return BadRequest(ApiResponse<EvolveResultDto>.Error(400, "缺少存档ID"));
+            return BadRequest(ErrorMessage<EvolveResultDto>(400, "pokemon.missingSaveFileId"));
         if (request.TargetSpecies < 1 || request.TargetSpecies > 1025)
-            return BadRequest(ApiResponse<EvolveResultDto>.Error(400, "目标物种无效"));
+            return BadRequest(ErrorMessage<EvolveResultDto>(400, "pokemon.invalidTargetSpecies"));
 
         try
         {
@@ -758,20 +760,20 @@ public class PokemonController : ControllerBase
             // 执行进化（含 editSnapshot 应用、状态同步、写回槽位）
             var result = _evolutionService.ExecuteEvolve(pkm, sav, request);
             if (!result.Success)
-                return Ok(ApiResponse<EvolveResultDto>.Ok(result, result.Error ?? "进化失败"));
+                return Ok(OkMessageFallback(result, "pokemon.evolutionFailed", result.Error ?? Text("pokemon.evolutionFailed")));
 
             // 持久化（WriteBackSave 内部自带备份 + 缓存失效）
             await _saveFileService.WriteBackSave(sf, userId.Value, sav);
 
-            return Ok(ApiResponse<EvolveResultDto>.Ok(result, "进化成功"));
+            return Ok(OkMessage(result, "pokemon.evolutionSuccess"));
         }
         catch (BusinessException ex)
         {
-            return BadRequest(ApiResponse<EvolveResultDto>.Error(ex.ErrorCode, ex.Message));
+            return BadRequest(FromBusinessException<EvolveResultDto>(ex));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<EvolveResultDto>.Error(400, ex.Message));
+            return BadRequest(ErrorMessageFallback<EvolveResultDto>(400, "common.unexpectedError", ex.Message));
         }
     }
 

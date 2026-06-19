@@ -165,13 +165,13 @@ public class BankService
         var record = await _db.QueryFirstOrDefaultAsync<BankPokemon>(
             "SELECT * FROM bank_pokemon WHERE id = @Id AND user_id = @UserId",
             new { Id = bankId, UserId = userId })
-            ?? throw new BusinessException("银行宝可梦不存在", 404);
+            ?? throw BusinessException.FromKey("bank.notFound", 404);
 
         if (string.IsNullOrEmpty(record.PkmDataBase64))
-            throw new BusinessException("该记录缺少原始数据，不可编辑", 400);
+            throw BusinessException.FromKey("bank.rawDataMissingReadonly", 400);
 
         var pkm = EntityFormat.GetFromBytes(Convert.FromBase64String(record.PkmDataBase64))
-            ?? throw new BusinessException("无法解析宝可梦数据", 400);
+            ?? throw BusinessException.FromKey("parse.rebuildFailed", 400);
 
         // Apply edits (reuse PokemonEditService)
         var result = _editService.ApplyEdits(pkm, request);
@@ -229,13 +229,13 @@ public class BankService
         var record = await _db.QueryFirstOrDefaultAsync<BankPokemon>(
             "SELECT * FROM bank_pokemon WHERE id = @Id AND user_id = @UserId",
             new { Id = bankId, UserId = userId })
-            ?? throw new BusinessException("银行宝可梦不存在", 404);
+            ?? throw BusinessException.FromKey("bank.notFound", 404);
 
         if (string.IsNullOrEmpty(record.PkmDataBase64))
-            throw new BusinessException("该记录缺少原始数据", 400);
+            throw BusinessException.FromKey("bank.rawDataMissing", 400);
 
         var pkm = EntityFormat.GetFromBytes(Convert.FromBase64String(record.PkmDataBase64))
-            ?? throw new BusinessException("无法解析宝可梦数据", 400);
+            ?? throw BusinessException.FromKey("parse.rebuildFailed", 400);
 
         var (sf, sav) = await _saveFileService.LoadSave(saveFileId, userId);
 
@@ -253,7 +253,7 @@ public class BankService
             {
                 if (boxData[i].Species == 0) { slot = i; break; }
             }
-            if (slot < 0) throw new BusinessException("目标箱子已满", 400);
+            if (slot < 0) throw BusinessException.FromKey("bank.targetBoxFull", 400);
         }
 
         // Shared helper: GetCompatiblePKM + empty check + write
@@ -405,7 +405,7 @@ public class BankService
     {
         // 读取存档二进制 → 解析盒子 → 获取指定槽位 PKM
         var pkm = _saveFileService.ReadBoxSlot(saveFileId, userId, boxIndex, slotIndex);
-        if (pkm == null) throw new BusinessException("该位置没有宝可梦");
+        if (pkm == null) throw BusinessException.FromKey("bank.slotEmpty", 400);
 
         // Map to DTO
         var pokemon = _parseService.MapToPokemonDto(pkm);
@@ -461,7 +461,7 @@ public class BankService
             new { Id = bankPokemonId, UserId = userId });
 
         if (deleted == 0)
-            throw new BusinessException("宝可梦不存在", 404);
+            throw BusinessException.FromKey("common.pokemonNotFound", 404);
         _legalityCache.InvalidateBank(userId);
     }
 
@@ -488,7 +488,7 @@ public class BankService
             new { Ids = ids, UserId = userId })).ToList();
 
         if (records.Count == 0)
-            throw new BusinessException("未找到可导出的宝可梦", 404);
+            throw BusinessException.FromKey("bank.exportNotFound", 404);
 
         using var ms = new MemoryStream();
         using (var archive = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
@@ -525,7 +525,7 @@ public class BankService
     public async Task<BatchMoveResult> BatchMoveToSave(List<Guid> ids, Guid saveFileId, int targetBoxIndex, Guid userId)
     {
         if (ids.Count == 0)
-            throw new BusinessException("请选择要移动的宝可梦", 400);
+            throw BusinessException.FromKey("bank.selectPokemonRequired", 400);
 
         // 加载存档
         var (sf, sav) = await _saveFileService.LoadSave(saveFileId, userId);
@@ -541,7 +541,7 @@ public class BankService
         }
 
         if (emptySlots.Count == 0)
-            throw new BusinessException("目标箱子已满");
+            throw BusinessException.FromKey("bank.targetBoxFull", 400);
 
         // 读取银行宝可梦
         var records = (await _db.QueryAsync<BankPokemon>(
@@ -549,7 +549,7 @@ public class BankService
             new { Ids = ids, UserId = userId })).ToList();
 
         if (records.Count == 0)
-            throw new BusinessException("未找到可移动的宝可梦", 404);
+            throw BusinessException.FromKey("bank.moveNotFound", 404);
 
         var recordMap = records.ToDictionary(r => r.Id);
 

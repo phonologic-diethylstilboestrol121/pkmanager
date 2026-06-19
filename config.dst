@@ -135,6 +135,38 @@ VITE_API_TARGET=https://localhost:5001
 
 
 # ──────────────────────────────────────────────────────────
+#  LOCAL ROM IMPORT / 本地 ROM 导入
+#  Server-side local ROM import configuration
+#  服务端本地 ROM 导入配置
+# ──────────────────────────────────────────────────────────
+
+# Base directory for local ROM import
+# 本地 ROM 导入基目录
+# Relative values are resolved from server/PkManager.Server
+# 相对路径会从 server/PkManager.Server 目录解析
+ROM_IMPORT_DIRECTORY=../../roms
+
+# Configure each supported game explicitly.
+# Support absolute paths, or file names / relative paths under ROM_IMPORT_DIRECTORY.
+# 逐游戏显式配置。
+# 支持绝对路径，或 ROM_IMPORT_DIRECTORY 下的文件名 / 相对路径。
+ROM_PKM_RUBY=
+ROM_PKM_SAPPHIRE=
+ROM_PKM_EMERALD=
+ROM_PKM_FIRERED=
+ROM_PKM_LEAFGREEN=
+ROM_PKM_DIAMOND=
+ROM_PKM_PEARL=
+ROM_PKM_PLATINUM=
+ROM_PKM_HEARTGOLD=
+ROM_PKM_SOULSILVER=
+ROM_PKM_BLACK=
+ROM_PKM_WHITE=
+ROM_PKM_BLACK2=
+ROM_PKM_WHITE2=
+
+
+# ──────────────────────────────────────────────────────────
 #  LOGGING / 日志
 #  Application log level (ASP.NET standard levels)
 #  应用日志级别（ASP.NET 标准日志级别）

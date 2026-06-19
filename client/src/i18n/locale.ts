@@ -1,6 +1,11 @@
 import type { TFunction } from 'i18next';
 import { FALLBACK_LANG, SUPPORTED_LANGS } from './i18n';
 
+export interface PokemonLanguageOption {
+  value: number;
+  label: string;
+}
+
 export function getUiLocale(lang: string): string {
   if (SUPPORTED_LANGS.includes(lang as (typeof SUPPORTED_LANGS)[number])) return lang;
   if (lang.startsWith('zh-')) return lang.toLowerCase().includes('hant') ? 'zh-Hant' : 'zh-Hans';
@@ -66,4 +71,18 @@ export function formatLocaleTime(value: string | number | Date, lang: string): s
 
 export function getLocalizedGenerationLabel(t: TFunction, generation: number, platform: string): string {
   return t('genLabel', { ns: 'games', gen: generation, platform });
+}
+
+export function getPokemonLanguageOptions(t: TFunction): PokemonLanguageOption[] {
+  return [
+    { value: 1, label: `${t('language.ja', { ns: 'common', defaultValue: '日本語' })} (JPN)` },
+    { value: 2, label: `${t('language.en', { ns: 'common', defaultValue: 'English' })} (ENG)` },
+    { value: 3, label: `${t('language.fr', { ns: 'common', defaultValue: 'Français' })} (FRE)` },
+    { value: 4, label: `${t('language.it', { ns: 'common', defaultValue: 'Italiano' })} (ITA)` },
+    { value: 5, label: `${t('language.de', { ns: 'common', defaultValue: 'Deutsch' })} (GER)` },
+    { value: 7, label: `${t('language.es', { ns: 'common', defaultValue: 'Español' })} (SPA)` },
+    { value: 8, label: `${t('language.ko', { ns: 'common', defaultValue: '한국어' })} (KOR)` },
+    { value: 9, label: `${t('language.zhHans', { ns: 'common', defaultValue: '简体中文' })} (CHS)` },
+    { value: 10, label: `${t('language.zhHant', { ns: 'common', defaultValue: '繁體中文' })} (CHT)` },
+  ];
 }
