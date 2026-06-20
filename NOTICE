@@ -1,0 +1,50 @@
+全球热门IP抓宠对战游戏全世代管理平台 (Cross-Generation Save Manager for Creature-Collection Games)
+===============================================================
+
+Copyright (C) 2025-2026  fmangela
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program (see the LICENSE file).  If not, see
+<https://www.gnu.org/licenses/>.
+
+
+Third-Party Components
+----------------------
+
+This project incorporates or depends on the following third-party
+open-source software. Their respective copyrights and licenses apply:
+
+PKHeX.Core (v26.x)
+  Copyright (C) 2014-2025  Kurt (kwsch) / PKHeX Team
+  License: GPL-3.0-or-later
+  Repository: https://github.com/kwsch/PKHeX
+
+mGBA
+  Copyright (C) 2013-2025  Jeffrey Pfau (endrift)
+  License: MPL 2.0
+  Repository: https://github.com/mgba-emu/mgba
+
+melonDS
+  Copyright (C) 2017-2025  Arisotura / melonDS Team
+  License: GPL-3.0
+  Repository: https://github.com/melonDS-emu/melonDS
+
+DeSmuME
+  Copyright (C) 2006-2025  DeSmuME Team
+  License: GPL-2.0-or-later
+  Repository: https://github.com/TASEmulators/desmume
+
+Azahar (Citra successor)
+  Copyright (C) 2013-2025  Citra / Azahar Team
+  License: GPL-2.0-or-later
+  Repository: https://github.com/azahar-emu/azahar
