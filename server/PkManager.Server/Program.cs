@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Dapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -148,6 +149,7 @@ builder.Services.AddControllers(options =>
         // 自定义命名策略：强制全小写首字母（IVs→ivs, EVs→evs 而非默认的 iVs, eVs）
         options.JsonSerializerOptions.PropertyNamingPolicy = new ForceLowercaseNamingPolicy();
         options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     })
     .ConfigureApiBehaviorOptions(options =>
     {

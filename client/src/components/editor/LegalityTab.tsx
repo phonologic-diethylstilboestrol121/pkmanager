@@ -16,6 +16,8 @@ interface Props {
   editSnapshot?: Record<string, unknown>;
 }
 
+const LEGALITY_STATUSES: readonly LegalityStatus[] = ['Legal', 'Fishy', 'Illegal'];
+
 const STATUS_CONFIG: Record<LegalityStatus, { color: string; icon: React.ReactNode; text: string }> = {
   Legal: { color: 'green', icon: <CheckCircleOutlined />, text: 'Legal' },
   Fishy: { color: 'orange', icon: <WarningOutlined />, text: 'Fishy' },
@@ -25,10 +27,14 @@ const STATUS_CONFIG: Record<LegalityStatus, { color: string; icon: React.ReactNo
 const LegalityTab: React.FC<Props> = ({ status, report, judgements, onFix, onValidate, pkmDataBase64, editSnapshot }) => {
   const { t } = useTranslation(['editor', 'messages', 'common']);
   const [validating, setValidating] = useState(false);
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.Illegal;
+  const safeStatus = LEGALITY_STATUSES.includes(status) ? status : 'Legal';
+  if (!LEGALITY_STATUSES.includes(status)) {
+    console.warn('[LegalityTab] Unexpected legality status:', status);
+  }
+  const config = STATUS_CONFIG[safeStatus];
   const configText =
-    status === 'Legal' ? t('legality.legal', { ns: 'editor', defaultValue: '合法' }) :
-    status === 'Fishy' ? t('legality.fishy', { ns: 'editor', defaultValue: '可疑' }) :
+    safeStatus === 'Legal' ? t('legality.legal', { ns: 'editor', defaultValue: '合法' }) :
+    safeStatus === 'Fishy' ? t('legality.fishy', { ns: 'editor', defaultValue: '可疑' }) :
     t('legality.illegal', { ns: 'editor', defaultValue: '不合法' });
   const fixableJudgements = judgements.filter(j => j.canFix);
   const { message } = App.useApp();
@@ -89,20 +95,20 @@ const LegalityTab: React.FC<Props> = ({ status, report, judgements, onFix, onVal
     <div>
       {/* Status Banner */}
       <Alert
-        type={status === 'Legal' ? 'success' : status === 'Fishy' ? 'warning' : 'error'}
+        type={safeStatus === 'Legal' ? 'success' : safeStatus === 'Fishy' ? 'warning' : 'error'}
         message={
           <Space>
             {config.icon}
             <span style={{ fontWeight: 600 }}>{configText}</span>
-            <Tag color={config.color}>{status}</Tag>
+            <Tag color={config.color}>{safeStatus}</Tag>
           </Space>
         }
         description={
-          status !== 'Legal' && report ? (
+          safeStatus !== 'Legal' && report ? (
             <div style={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto', fontSize: 12 }}>
               {report}
             </div>
-          ) : status === 'Legal' ? t('legality.safeToUse', { ns: 'editor', defaultValue: '此宝可梦完全合法，可以安全使用。' }) : null
+          ) : safeStatus === 'Legal' ? t('legality.safeToUse', { ns: 'editor', defaultValue: '此宝可梦完全合法，可以安全使用。' }) : null
         }
         showIcon={false}
         style={{ marginBottom: 12 }}
